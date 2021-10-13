@@ -7,7 +7,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Bicep.Core.CodeAction;
-using Bicep.Core.CodeAction.Fixes;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Extensions;
 using Bicep.Core.FileSystem;
@@ -497,13 +496,58 @@ param foo2 string", "param foo2 string")]
             updatedFile.Should().HaveSourceText(expectedText);
         }
 
-        [DataRow("var|")]
-        [DataRow("var |")]
-        [DataTestMethod]
-        public async Task Unused_variable_actions_are_not_suggested_for_invalid_variables(string fileWithCursors)
+        [TestMethod]
+        public async Task VerifyCodeFixToUseRecentApiVersion()
         {
-            var (codeActions, _) = await RunSyntaxTest(fileWithCursors);
-            codeActions.Should().NotContain(x => x.Title.StartsWith(RemoveUnusedVariableTitle));
+            string text = @"resource dnsZone 'Microsoft.Network/dnsZones@2017-09-01' = {
+  name: 'name'
+  location: 'global'
+}";
+
+            var testOutputPath = Path.Combine(TestContext.ResultsDirectory, Guid.NewGuid().ToString());
+
+            var bicepFilePath = FileHelper.SaveResultFile(TestContext, "main.bicep", text, testOutputPath);
+            var documentUri = DocumentUri.FromFileSystemPath(bicepFilePath);
+
+            var fileSystemDict = new Dictionary<Uri, string>();
+            fileSystemDict[documentUri.ToUri()] = text;
+
+            var workspace = new Workspace();
+            var compilation = GetCompilation(bicepFilePath, workspace);
+
+            var serverOptions = new Server.CreationOptions(FileResolver: new InMemoryFileResolver(fileSystemDict));
+
+            // Start language server
+            var client = await IntegrationTestHelper.StartServerWithTextAsync(TestContext,
+                text,
+                documentUri,
+                creationOptions: serverOptions);
+
+            var fixable = compilation.GetEntrypointSemanticModel().GetAllDiagnostics().OfType<IFixable>().First();
+
+            fixable.Fixes.Should().SatisfyRespectively(
+                x =>
+                {
+                    x.Description.Should().Be("Use recent api version 2018-05-01");
+                });
+
+            var lineStarts = compilation.SourceFileGrouping.EntryPoint.LineStarts;
+
+            var quickFixes = await client.RequestCodeAction(new CodeActionParams
+            {
+                TextDocument = new TextDocumentIdentifier(documentUri),
+                Range = fixable.Span.ToRange(lineStarts)
+            });
+
+            var quickFixList = quickFixes.Where(x => x.CodeAction!.Kind == CodeActionKind.QuickFix).ToList();
+
+            quickFixList.Should().SatisfyRespectively(
+                x =>
+                {
+                    x.IsCodeAction.Should().BeTrue();
+                    x.CodeAction!.Kind.Should().Be(CodeActionKind.QuickFix);
+                    x.CodeAction.Title.Should().Be("Use recent api version 2018-05-01");
+                });
         }
 
         [DataRow("param|")]
@@ -769,8 +813,7 @@ param fo|o {paramType}
             var helper = await DefaultServer.GetAsync();
             await helper.OpenFileOnceAsync(TestContext, file, bicepFile.FileUri);
 
-            var codeActions = await RequestCodeActions(helper.Client, bicepFile, cursors.Single());
-            return (codeActions, bicepFile);
+            return new Compilation(TestTypeHelper.CreateEmptyProvider(), sourceFileGrouping, configuration, BicepTestConstants.ApiVersionProvider);
         }
 
         private static IEnumerable<TextSpan> GetOverlappingSpans(TextSpan span)

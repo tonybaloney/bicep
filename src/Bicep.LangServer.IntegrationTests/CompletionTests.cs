@@ -164,7 +164,7 @@ namespace Bicep.LangServer.IntegrationTests
                 {
                     [combinedFileUri] = bicepContentsReplaced,
                 }, combinedFileUri, BicepTestConstants.FileResolver, BicepTestConstants.BuiltInConfiguration);
-                var compilation = new Compilation(BicepTestConstants.Features, NamespaceProvider, sourceFileGrouping, BicepTestConstants.BuiltInConfiguration, BicepTestConstants.LinterAnalyzer);
+                var compilation = new Compilation(NamespaceProvider, sourceFileGrouping, BicepTestConstants.BuiltInConfiguration, BicepTestConstants.ApiVersionProvider);
                 var diagnostics = compilation.GetEntrypointSemanticModel().GetAllDiagnostics();
 
                 var sourceTextWithDiags = OutputHelper.AddDiagsToSourceText(bicepContentsReplaced, "\n", diagnostics, diag => OutputHelper.GetDiagLoggingString(bicepContentsReplaced, outputDirectory, diag));
@@ -1082,40 +1082,43 @@ module mod2 './|' = {}
 
                     var snippetCompletions = completionLists.First()!.Items.Where(x => x.Kind == CompletionItemKind.Snippet);
 
-                    snippetCompletions.Should().SatisfyRespectively(
-                        x =>
-                        {
-                            x.Label.Should().Be("resource-with-defaults");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("resource-without-defaults");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("res-automation-cert");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("res-automation-cred");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("res-automation-job-schedule");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("res-automation-runbook");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("res-automation-schedule");
-                        },
-                        x =>
-                        {
-                            x.Label.Should().Be("res-automation-variable");
-                        });
-                });            
+            snippetCompletions.Should().SatisfyRespectively(
+                x =>
+                {
+                    x.Label.Should().Be("resource-with-defaults");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("resource-without-defaults");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-cert");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-cred");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-job-schedule");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-module");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-runbook");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-schedule");
+                },
+                x =>
+                {
+                    x.Label.Should().Be("res-automation-variable");
+                });
         }
 
         [TestMethod]

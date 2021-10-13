@@ -14,6 +14,42 @@ namespace Bicep.LangServer.IntegrationTests
     {
         private const int DefaultTimeout = 30000;
 
+        public static readonly ISnippetsProvider SnippetsProvider = new SnippetsProvider(TestTypeHelper.CreateEmptyProvider(), BicepTestConstants.FileResolver, BicepTestConstants.ConfigurationManager, BicepTestConstants.ApiVersionProvider);
+
+        public static async Task<ILanguageClient> StartServerWithClientConnectionAsync(TestContext testContext, Action<LanguageClientOptions> onClientOptions, Server.CreationOptions? creationOptions = null)
+        {
+            var clientPipe = new Pipe();
+            var serverPipe = new Pipe();
+
+            creationOptions ??= new Server.CreationOptions();
+            creationOptions = creationOptions with
+            {
+                SnippetsProvider = creationOptions.SnippetsProvider ?? SnippetsProvider,
+                FileResolver = creationOptions.FileResolver ?? new InMemoryFileResolver(new Dictionary<Uri, string>())
+            };
+
+            var server = new Server(serverPipe.Reader, clientPipe.Writer, creationOptions);
+            var _ = server.RunAsync(CancellationToken.None); // do not wait on this async method, or you'll be waiting a long time!
+            
+            var client = LanguageClient.PreInit(options => 
+            {
+                options
+                    .WithInput(clientPipe.Reader)
+                    .WithOutput(serverPipe.Writer)
+                    .OnInitialize((client, request, cancellationToken) => { testContext.WriteLine("Language client initializing."); return Task.CompletedTask; })
+                    .OnInitialized((client, request, response, cancellationToken) => { testContext.WriteLine("Language client initialized."); return Task.CompletedTask; })
+                    .OnStarted((client, cancellationToken) => { testContext.WriteLine("Language client started."); return Task.CompletedTask; })
+                    .OnLogTrace(@params => testContext.WriteLine($"TRACE: {@params.Message} VERBOSE: {@params.Verbose}"))
+                    .OnLogMessage(@params => testContext.WriteLine($"{@params.Type}: {@params.Message}"));
+
+                onClientOptions(options);
+            });
+            await client.Initialize(CancellationToken.None);
+
+            testContext.WriteLine("LanguageClient initialize finished.");
+
+            return client;
+        }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "VSTHRD003:Avoid awaiting foreign Tasks", Justification = "Not an issue in test code.")]
         public static async Task<T> WithTimeoutAsync<T>(Task<T> task, int timeout = DefaultTimeout)
