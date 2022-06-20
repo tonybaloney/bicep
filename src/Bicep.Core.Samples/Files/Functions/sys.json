@@ -734,7 +734,7 @@
     "fixedParameters": [
       {
         "name": "filePath",
-        "description": "The path to the file that will be loaded",
+        "description": "The path to the file that will be loaded.",
         "type": "string",
         "required": true
       }
@@ -753,7 +753,7 @@
     "fixedParameters": [
       {
         "name": "filePath",
-        "description": "The path to the file that will be loaded",
+        "description": "The path to the file that will be loaded.",
         "type": "string",
         "required": true
       },
@@ -786,7 +786,7 @@
     "fixedParameters": [
       {
         "name": "filePath",
-        "description": "The path to the file that will be loaded",
+        "description": "The path to the file that will be loaded.",
         "type": "string",
         "required": true
       },
