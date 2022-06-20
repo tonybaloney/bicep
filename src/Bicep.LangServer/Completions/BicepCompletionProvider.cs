@@ -155,7 +155,7 @@ namespace Bicep.LanguageServer.Completions
         private IEnumerable<CompletionItem> GetTargetScopeCompletions(SemanticModel model, BicepCompletionContext context)
         {
             return context.Kind.HasFlag(BicepCompletionContextKind.TargetScope) && context.TargetScope is { } targetScope
-                ? GetValueCompletionsForType(model.GetDeclaredType(targetScope), context.ReplacementRange, loopsAllowed: false)
+                ? GetValueCompletionsForType(model, context, model.GetDeclaredType(targetScope), loopsAllowed: false)
                 : Enumerable.Empty<CompletionItem>();
         }
 
@@ -375,6 +375,41 @@ namespace Bicep.LanguageServer.Completions
                     .WithCommand(new Command { Name = EditorCommands.RequestCompletions, Title = "file path completion" })
                     .Build());
 
+        private IEnumerable<CompletionItem> GetFilePathCompletions(SemanticModel model, BicepCompletionContext context, TypeSymbol type)
+        {
+            var entered = string.Empty;
+            if (SyntaxMatcher.IsTailMatch<StringSyntax, Token>(context.MatchingNodes, (s, _) => !s.IsInterpolated()) &&
+                context.MatchingNodes[^2] is StringSyntax stringSyntax)
+            {
+                //try get entered text. we need to provide path completions when something else than string is entered and in that case we use the token value to get what's currently entered
+                //(token value for string will have single quotes, so we need to avoid it)
+                entered = stringSyntax.TryGetLiteralValue() ?? string.Empty;
+            }
+
+            // These should only fail if we're not able to resolve cwd path or the entered string
+            if (!TryGetFilesForPathCompletions(model.SourceFile.FileUri, entered, out var cwdUri, out var files, out var dirs))
+            {
+                return Enumerable.Empty<CompletionItem>();
+            }
+
+            IEnumerable<CompletionItem> fileItems;
+            if (type.ValidationFlags.HasFlag(TypeSymbolValidationFlags.IsStringJsonFilePath))
+            {
+                // Prioritize .json or .jsonc files higher than other files.
+                var jsonItems = CreateFileCompletionItems(model, context, entered, files, cwdUri, (file) => PathHelper.HasExtension(file, "json") || PathHelper.HasExtension(file, "jsonc"), CompletionPriority.High);
+                var nonJsonItems = CreateFileCompletionItems(model, context, entered, files, cwdUri, (file) => !PathHelper.HasExtension(file, "json") && !PathHelper.HasExtension(file, "jsonc"), CompletionPriority.Medium);
+                fileItems = jsonItems.Concat(nonJsonItems);
+            }
+            else
+            {
+                fileItems = CreateFileCompletionItems(model, context, entered, files, cwdUri, (_) => true, CompletionPriority.High);
+            }
+
+            var dirItems = CreateDirectoryCompletionItems(model, context, entered, dirs, cwdUri, CompletionPriority.Medium);
+
+            return fileItems.Concat(dirItems);
+        }
+
         private IEnumerable<CompletionItem> GetModulePathCompletions(SemanticModel model, BicepCompletionContext context)
         {
             if (!context.Kind.HasFlag(BicepCompletionContextKind.ModulePath))
@@ -477,7 +512,7 @@ namespace Bicep.LanguageServer.Completions
 
             var declaredType = model.GetDeclaredType(parameter);
 
-            return GetValueCompletionsForType(declaredType, context.ReplacementRange, loopsAllowed: false);
+            return GetValueCompletionsForType(model, context, declaredType, loopsAllowed: false);
         }
 
         private IEnumerable<CompletionItem> GetVariableValueCompletions(BicepCompletionContext context)
@@ -500,7 +535,7 @@ namespace Bicep.LanguageServer.Completions
 
             var declaredType = model.GetDeclaredType(output);
 
-            return GetValueCompletionsForType(declaredType, context.ReplacementRange, loopsAllowed: true);
+            return GetValueCompletionsForType(model, context, declaredType, loopsAllowed: true);
         }
 
         private IEnumerable<CompletionItem> GetResourceBodyCompletions(SemanticModel model, BicepCompletionContext context)
@@ -868,7 +903,7 @@ namespace Bicep.LanguageServer.Completions
             }
 
             var loopsAllowed = context.Property is not null && ForSyntaxValidatorVisitor.IsAddingPropertyLoopAllowed(model, context.Property);
-            return GetValueCompletionsForType(declaredTypeAssignment.Reference.Type, context.ReplacementRange, loopsAllowed);
+            return GetValueCompletionsForType(model, context, declaredTypeAssignment.Reference.Type, loopsAllowed);
         }
 
         private IEnumerable<CompletionItem> GetArrayItemCompletions(SemanticModel model, BicepCompletionContext context)
@@ -884,7 +919,7 @@ namespace Bicep.LanguageServer.Completions
                 return Enumerable.Empty<CompletionItem>();
             }
 
-            return GetValueCompletionsForType(arrayType.Item.Type, context.ReplacementRange, loopsAllowed: false);
+            return GetValueCompletionsForType(model, context, arrayType.Item.Type, loopsAllowed: false);
         }
 
         private IEnumerable<CompletionItem> GetFunctionParamCompletions(SemanticModel model, BicepCompletionContext context)
@@ -897,57 +932,30 @@ namespace Bicep.LanguageServer.Completions
 
             var argType = functionSymbol.GetDeclaredArgumentType(context.FunctionArgument.ArgumentIndex);
 
-            //functionArgument flag indicates that we are about to type a function argument. But path completions should be also shown when on a argument value
-            if (functionArgument.ArgumentNodes.IsEmpty
-                || !(functionArgument.ArgumentNodes[0] is StringSyntax stringSyntax && stringSyntax.IsInterpolated())) //we discard path completions when string is interpolated (although it shouldn't). here are too many cases to handle and this situation should not happen
-            {
-                if (argType.ValidationFlags.HasFlag(TypeSymbolValidationFlags.IsStringFilePath))
-                {
-                    //try get entered text. we need to provide path completions when something else than string is entered and in that case we use the token value to get what's currently entered
-                    //(token value for string will have single quotes, so we need to avoid it)
-                    var entered = (functionArgument.ArgumentNodes.ElementAtOrDefault(0) as StringSyntax)?.TryGetLiteralValue() ?? (functionArgument.ArgumentNodes.LastOrDefault() as Token)?.Text ?? string.Empty;
-
-                    // These should only fail if we're not able to resolve cwd path or the entered string
-                    if (!TryGetFilesForPathCompletions(model.SourceFile.FileUri, entered, out var cwdUri, out var files, out var dirs))
-                    {
-                        return Enumerable.Empty<CompletionItem>();
-                    }
-
-                    IEnumerable<CompletionItem> fileItems;
-                    if (argType.ValidationFlags.HasFlag(TypeSymbolValidationFlags.IsStringJsonFilePath))
-                    {
-                        // Prioritize .json or .jsonc files higher than other files.
-                        var jsonItems = CreateFileCompletionItems(model, context, entered, files, cwdUri, (file) => PathHelper.HasExtension(file, "json") || PathHelper.HasExtension(file, "jsonc"), CompletionPriority.High);
-                        var nonJsonItems = CreateFileCompletionItems(model, context, entered, files, cwdUri, (file) => !PathHelper.HasExtension(file, "json") && !PathHelper.HasExtension(file, "jsonc"), CompletionPriority.Medium);
-                        fileItems = jsonItems.Concat(nonJsonItems);
-                    }
-                    else
-                    {
-                        fileItems = CreateFileCompletionItems(model, context, entered, files, cwdUri, (_) => true, CompletionPriority.High);
-                    }
-
-                    var dirItems = CreateDirectoryCompletionItems(model, context, entered, dirs, cwdUri, CompletionPriority.Medium);
-
-                    return fileItems.Concat(dirItems);
-                }
-            }
-
             if (!context.Kind.HasFlag(BicepCompletionContextKind.FunctionArgument))
             {
                 return Enumerable.Empty<CompletionItem>();
             }
 
-            return GetValueCompletionsForType(argType, context.ReplacementRange, loopsAllowed: false);
+            return GetValueCompletionsForType(model, context, argType, loopsAllowed: false);
         }
 
-        private IEnumerable<CompletionItem> GetValueCompletionsForType(TypeSymbol? type, Range replacementRange, bool loopsAllowed)
+        private IEnumerable<CompletionItem> GetValueCompletionsForType(SemanticModel model, BicepCompletionContext context, TypeSymbol? type, bool loopsAllowed)
         {
+            var replacementRange = context.ReplacementRange;
             switch (type)
             {
                 case PrimitiveType _ when ReferenceEquals(type, LanguageConstants.Bool):
                     yield return CreateKeywordCompletion(LanguageConstants.TrueKeyword, LanguageConstants.TrueKeyword, replacementRange, preselect: true, CompletionPriority.High);
                     yield return CreateKeywordCompletion(LanguageConstants.FalseKeyword, LanguageConstants.FalseKeyword, replacementRange, preselect: true, CompletionPriority.High);
 
+                    break;
+
+                case PrimitiveType _ when (type.ValidationFlags.HasFlag(TypeSymbolValidationFlags.IsStringFilePath)):
+                    foreach (var completion in GetFilePathCompletions(model, context, type))
+                    {
+                        yield return completion;
+                    }
                     break;
 
                 case StringLiteralType stringLiteral:
@@ -990,7 +998,7 @@ namespace Bicep.LanguageServer.Completions
                     break;
 
                 case UnionType union:
-                    var aggregatedCompletions = union.Members.SelectMany(typeRef => GetValueCompletionsForType(typeRef.Type, replacementRange, loopsAllowed));
+                    var aggregatedCompletions = union.Members.SelectMany(typeRef => GetValueCompletionsForType(model, context, typeRef.Type, loopsAllowed));
                     foreach (var completion in aggregatedCompletions)
                     {
                         yield return completion;
