@@ -36,28 +36,31 @@ namespace Bicep.Core.ApiVersion
 
             foreach (var resourceTypeReference in resourceTypeReferences)
             {
-                (string? apiVersion, string? prefix) = GetApiVersionAndPrefix(resourceTypeReference.ApiVersion);
-
-                switch (prefix)
+                (string? apiVersion, string? prefix) = resourceTypeReference.ApiVersion != null ? GetApiVersionAndPrefix(resourceTypeReference.ApiVersion) : (null, null);
+                if (prefix != null)
                 {
-                    case ApiVersionPrefixConstants.GA:
-                        UpdateCache(gaVersions, apiVersion, resourceTypeReference.FullyQualifiedType);
-                        break;
-                    case ApiVersionPrefixConstants.Alpha:
-                        UpdateCache(alphaVersions, apiVersion, resourceTypeReference.FullyQualifiedType);
-                        break;
-                    case ApiVersionPrefixConstants.Beta:
-                        UpdateCache(betaVersions, apiVersion, resourceTypeReference.FullyQualifiedType);
-                        break;
-                    case ApiVersionPrefixConstants.Preview:
-                        UpdateCache(previewVersions, apiVersion, resourceTypeReference.FullyQualifiedType);
-                        break;
-                    case ApiVersionPrefixConstants.PrivatePreview:
-                        UpdateCache(privatePreviewVersions, apiVersion, resourceTypeReference.FullyQualifiedType);
-                        break;
-                    case ApiVersionPrefixConstants.RC:
-                        UpdateCache(rcVersions, apiVersion, resourceTypeReference.FullyQualifiedType);
-                        break;
+                    string fullyQualifiedType = resourceTypeReference.FormatType(); //asdfg?
+                    switch (prefix)
+                    {
+                        case ApiVersionPrefixConstants.GA:
+                            UpdateCache(gaVersions, apiVersion, fullyQualifiedType);
+                            break;
+                        case ApiVersionPrefixConstants.Alpha:
+                            UpdateCache(alphaVersions, apiVersion, fullyQualifiedType);
+                            break;
+                        case ApiVersionPrefixConstants.Beta:
+                            UpdateCache(betaVersions, apiVersion, fullyQualifiedType);
+                            break;
+                        case ApiVersionPrefixConstants.Preview:
+                            UpdateCache(previewVersions, apiVersion, fullyQualifiedType);
+                            break;
+                        case ApiVersionPrefixConstants.PrivatePreview:
+                            UpdateCache(privatePreviewVersions, apiVersion, fullyQualifiedType);
+                            break;
+                        case ApiVersionPrefixConstants.RC:
+                            UpdateCache(rcVersions, apiVersion, fullyQualifiedType);
+                            break;
+                    }
                 }
             }
 
@@ -73,7 +76,7 @@ namespace Bicep.Core.ApiVersion
         {
             if (apiVersion is not null)
             {
-                if (cache.TryGetValue(fullyQualifiedType, out List<string> value))
+                if (cache.TryGetValue(fullyQualifiedType, out List<string>? value))
                 {
                     value.Add(apiVersion);
                     cache[fullyQualifiedType] = value;
@@ -108,7 +111,7 @@ namespace Bicep.Core.ApiVersion
 
         private string? GetRecentApiVersion(string fullyQualifiedName, Dictionary<string, List<string>> cache)
         {
-            if (cache.TryGetValue(fullyQualifiedName, out List<string> apiVersionDates) && apiVersionDates.Any())
+            if (cache.TryGetValue(fullyQualifiedName, out List<string>? apiVersionDates) && apiVersionDates.Any())
             {
                 return apiVersionDates.First();
             }

@@ -7,6 +7,18 @@ using System.Collections.Immutable;
 using Bicep.Core.Syntax;
 using Bicep.LanguageServer.Utils;
 using Bicep.Core.Navigation;
+using System.IO.Pipelines;
+using Bicep.LanguageServer;
+using Bicep.Core.FileSystem;
+using System.Collections.Generic;
+using Bicep.LanguageServer.Snippets;
+using Bicep.Core.UnitTests.Utils;
+using Bicep.Core.UnitTests;
+using System;
+using OmniSharp.Extensions.LanguageServer.Protocol.Client;
+using OmniSharp.Extensions.LanguageServer.Client;
+using System.Threading;
+using OmniSharp.Extensions.LanguageServer.Protocol.Window;
 
 namespace Bicep.LangServer.IntegrationTests
 {
@@ -14,7 +26,7 @@ namespace Bicep.LangServer.IntegrationTests
     {
         private const int DefaultTimeout = 30000;
 
-        public static readonly ISnippetsProvider SnippetsProvider = new SnippetsProvider(TestTypeHelper.CreateEmptyProvider(), BicepTestConstants.FileResolver, BicepTestConstants.ConfigurationManager, BicepTestConstants.ApiVersionProvider);
+        public static readonly ISnippetsProvider SnippetsProvider = new SnippetsProvider(BicepTestConstants.Features, TestTypeHelper.CreateEmptyProvider(), BicepTestConstants.FileResolver, BicepTestConstants.ConfigurationManager, BicepTestConstants.ApiVersionProvider);
 
         public static async Task<ILanguageClient> StartServerWithClientConnectionAsync(TestContext testContext, Action<LanguageClientOptions> onClientOptions, Server.CreationOptions? creationOptions = null)
         {
@@ -28,10 +40,14 @@ namespace Bicep.LangServer.IntegrationTests
                 FileResolver = creationOptions.FileResolver ?? new InMemoryFileResolver(new Dictionary<Uri, string>())
             };
 
-            var server = new Server(serverPipe.Reader, clientPipe.Writer, creationOptions);
+            var server = new Server(
+                creationOptions,
+                options => options
+                    .WithInput(serverPipe.Reader)
+                    .WithOutput(clientPipe.Writer));
             var _ = server.RunAsync(CancellationToken.None); // do not wait on this async method, or you'll be waiting a long time!
-            
-            var client = LanguageClient.PreInit(options => 
+
+            var client = LanguageClient.PreInit(options =>
             {
                 options
                     .WithInput(clientPipe.Reader)

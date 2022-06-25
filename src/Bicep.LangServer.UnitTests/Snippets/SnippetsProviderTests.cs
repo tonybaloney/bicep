@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using Bicep.Core;
 using Bicep.Core.Resources;
@@ -186,7 +187,8 @@ resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
                 ResourceScope.ResourceGroup,
                 CreateObjectType("Microsoft.Automation/automationAccounts/modules@2019-06-01",
                 ("name", LanguageConstants.String, TypePropertyFlags.Required),
-                ("location", LanguageConstants.String, TypePropertyFlags.Required)));
+                ("location", LanguageConstants.String, TypePropertyFlags.Required)),
+                ImmutableHashSet<string>.Empty);
 
             IEnumerable<Snippet> snippets = snippetsProvider.GetResourceBodyCompletionSnippets(resourceType, isExistingResource: false, isResourceNested: false);
 

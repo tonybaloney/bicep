@@ -3,6 +3,7 @@
 
 using System.Collections.Generic;
 using Bicep.Core.Analyzers.Linter;
+using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Emit;
 using Bicep.Core.Extensions;
@@ -19,8 +20,6 @@ using Bicep.LanguageServer.Telemetry;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using IOFileSystem = System.IO.Abstractions.FileSystem;
-using Bicep.Core.Json;
-using Bicep.Core.ApiVersion;
 
 namespace Bicep.Core.UnitTests
 {

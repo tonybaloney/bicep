@@ -1,7 +1,6 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-using System;
 using Bicep.Core.ApiVersion;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;

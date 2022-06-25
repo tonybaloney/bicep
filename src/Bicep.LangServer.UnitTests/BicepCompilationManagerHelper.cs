@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using Bicep.Core;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.FileSystem;
 using Bicep.Core.Registry;

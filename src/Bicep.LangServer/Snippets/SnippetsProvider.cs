@@ -74,6 +74,7 @@ namespace Bicep.LanguageServer.Snippets
         private readonly IFileResolver fileResolver;
         private readonly RootConfiguration configuration;
         private readonly LinterAnalyzer linterAnalyzer;
+        private readonly IConfigurationManager configurationManager;
 
         public SnippetsProvider(IFeatureProvider features, INamespaceProvider namespaceProvider, IFileResolver fileResolver, IConfigurationManager configurationManager, IApiVersionProvider apiVersionProvider)
         {
@@ -81,6 +82,7 @@ namespace Bicep.LanguageServer.Snippets
             this.apiVersionProvider = apiVersionProvider;
             this.namespaceProvider = namespaceProvider;
             this.fileResolver = fileResolver;
+            this.configurationManager = configurationManager;
 
             // We'll use default bicepconfig.json settings during SnippetsProvider creation to avoid errors during language service initialization.
             // We don't do any validation in SnippetsProvider. So using default settings shouldn't be a problem.
@@ -235,7 +237,7 @@ namespace Bicep.LanguageServer.Snippets
 
             // We'll use default bicepconfig.json settings during SnippetsProvider creation to avoid errors during language service initialization.
             // We don't do any validation in SnippetsProvider. So using default settings shouldn't be a problem.
-            Compilation compilation = new Compilation(namespaceProvider, sourceFileGrouping, configurationManager.GetBuiltInConfiguration(disableAnalyzers: true), apiVersionProvider, linterAnalyzer);
+            Compilation compilation = new Compilation(features, namespaceProvider, sourceFileGrouping, this.configurationManager.GetBuiltInConfiguration(disableAnalyzers: true), apiVersionProvider, linterAnalyzer);
 
             SemanticModel semanticModel = compilation.GetEntrypointSemanticModel();
 

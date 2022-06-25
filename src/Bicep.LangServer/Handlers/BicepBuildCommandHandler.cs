@@ -10,8 +10,6 @@ using System.Threading.Tasks;
 using Azure.Deployments.Core.Entities;
 using Azure.Deployments.Core.Helpers;
 using Bicep.Core.Analyzers.Linter;
-using Azure.Deployments.Core.Json;
-using Bicep.Core;
 using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;

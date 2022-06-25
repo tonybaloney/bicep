@@ -28,7 +28,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             code: Code,
             description: CoreResources.UseRecentApiVersionRuleDescription,
             docUri: new Uri($"https://aka.ms/bicep/linter/{Code}"),
-            diagnosticLabel: Diagnostics.DiagnosticLabel.Unnecessary)
+            diagnosticStyling: DiagnosticStyling.Default)
         {
         }
 
@@ -62,7 +62,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     resourceTypeReference.ApiVersion is string apiVersion &&
                     GetReplacementSpan(resourceSymbol, apiVersion) is TextSpan replacementSpan)
                 {
-                    string fullyQualifiedType = resourceTypeReference.FullyQualifiedType;
+                    string fullyQualifiedType = resourceTypeReference.FormatType(); //asdfg
                     (string? currentApiVersion, string? prefix) = apiVersionProvider.GetApiVersionAndPrefix(apiVersion);
 
                     string? recentGAVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, ApiVersionPrefixConstants.GA);
@@ -198,7 +198,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             {
                 var codeReplacement = new CodeReplacement(span, apiVersion);
                 string description = string.Format(CoreResources.UseRecentApiVersionRuleMessageFormat, apiVersion);
-                var fix = new CodeFix(description, true, codeReplacement);
+                var fix = new CodeFix(description, true, CodeFixKind.QuickFix, codeReplacement);
                 spanFixes[span] = fix;
             }
 

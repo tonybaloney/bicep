@@ -149,5 +149,10 @@ namespace Bicep.LanguageServer
             services.AddSingleton<IModuleRestoreScheduler, ModuleRestoreScheduler>();
             services.AddSingleton<IApiVersionProvider, ApiVersionProvider>();
         }
+
+        public void Dispose()
+        {
+            server.Dispose();
+        }
     }
 }

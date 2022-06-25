@@ -27,7 +27,7 @@ namespace Bicep.LanguageServer.Providers
         private readonly IFileResolver fileResolver;
         private readonly IModuleDispatcher moduleDispatcher;
 
-        public BicepCompilationProvider(IFeatureProvider features, INamespaceProvider namespaceProvider, IFileResolver fileResolver, IModuleDispatcher moduleDispatcherIApiVersionProvider apiVersionProvider)
+        public BicepCompilationProvider(IFeatureProvider features, INamespaceProvider namespaceProvider, IFileResolver fileResolver, IModuleDispatcher moduleDispatcher, IApiVersionProvider apiVersionProvider)
         {
             this.features = features;
             this.apiVersionProvider = apiVersionProvider;
@@ -50,7 +50,7 @@ namespace Bicep.LanguageServer.Providers
 
         private CompilationContext CreateContext(SourceFileGrouping syntaxTreeGrouping, ImmutableDictionary<ISourceFile, ISemanticModel> modelLookup, RootConfiguration configuration, LinterAnalyzer linterAnalyzer)
         {
-            var compilation = new Compilation(this.features, namespaceProvider, syntaxTreeGrouping, configuration, apiVersionProvider, modelLookup);
+            var compilation = new Compilation(this.features, namespaceProvider, syntaxTreeGrouping, configuration, apiVersionProvider, linterAnalyzer, modelLookup);
             return new CompilationContext(compilation);
         }
     }

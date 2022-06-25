@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Bicep.Core.Analyzers.Linter;
 using Bicep.Core.Analyzers.Linter.Rules;
 using Bicep.Core.ApiVersion;
 using Bicep.Core.CodeAction;
@@ -36,10 +37,13 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             });
         }
 
-        private SemanticModel SemanticModel => new Compilation(TestTypeHelper.CreateEmptyProvider(),
-                                                               SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
-                                                               BicepTestConstants.BuiltInConfiguration,
-                                                               BicepTestConstants.ApiVersionProvider).GetEntrypointSemanticModel();
+        private SemanticModel SemanticModel => new Compilation(
+            BicepTestConstants.Features,
+            TestTypeHelper.CreateEmptyProvider(),
+            SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
+            BicepTestConstants.BuiltInConfiguration,
+            BicepTestConstants.ApiVersionProvider,
+            new LinterAnalyzer(BicepTestConstants.BuiltInConfiguration)).GetEntrypointSemanticModel();
 
         [DataRow(@"
             resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
