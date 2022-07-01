@@ -45,32 +45,33 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             BicepTestConstants.ApiVersionProvider,
             new LinterAnalyzer(BicepTestConstants.BuiltInConfiguration)).GetEntrypointSemanticModel();
 
-        [DataRow(@"
-            resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
-              name: 'name'
-              location: resourceGroup().location
-            }",
-            "2018-05-01")]
-        [DataRow(@"
-            resource dnsZone 'Microsoft.Network/dnsZones@2017-10-01' = {
-              name: 'name'
-              location: resourceGroup().location
-            }",
-            "2018-05-01")]
-        [DataRow(@"
-            resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
-              name: 'name'
-              location: resourceGroup().location
-            }")]
-        [DataRow(@"
-            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2020-11-01-preview' = {
-              name: 'name'
-              location: resourceGroup().location
-              sku: {
-                name: 'Basic'
-              }
-            }",
-            "2021-06-01-preview")]
+        //asdfg will change with time
+        //[DataRow(@"
+        //    resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
+        //      name: 'name'
+        //      location: resourceGroup().location
+        //    }",
+        //    "2018-05-01")]
+        //[DataRow(@"
+        //    resource dnsZone 'Microsoft.Network/dnsZones@2017-10-01' = {
+        //      name: 'name'
+        //      location: resourceGroup().location
+        //    }",
+        //    "2018-05-01")]
+        //[DataRow(@"
+        //    resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
+        //      name: 'name'
+        //      location: resourceGroup().location
+        //    }")]
+        //[DataRow(@"
+        //    resource containerRegistry 'Microsoft.ContainerRegistry/registries@2020-11-01-preview' = {
+        //      name: 'name'
+        //      location: resourceGroup().location
+        //      sku: {
+        //        name: 'Basic'
+        //      }
+        //    }",
+        //    "2021-06-01-preview")]
         [DataRow(@"
             resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' = {
               name: 'name'
@@ -79,19 +80,20 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 name: 'Basic'
               }
             }")]
-        [DataRow(@"
-            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
-              name: 'name'
-              location: resourceGroup().location
-              sku: {
-                name: 'Basic'
-              }
-            }")]
-        [DataRow(@"
-            resource appServicePlan 'Microsoft.Web/serverfarms@2021-01-01' = {
-              name: 'name'
-              location: resourceGroup().location
-            }")]
+        //asdfg
+        //[DataRow(@"
+        //    resource containerRegistry 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
+        //      name: 'name'
+        //      location: resourceGroup().location
+        //      sku: {
+        //        name: 'Basic'
+        //      }
+        //    }")]
+        //[DataRow(@"
+        //    resource appServicePlan 'Microsoft.Web/serverfarms@2021-01-01' = {
+        //      name: 'name'
+        //      location: resourceGroup().location
+        //    }")]
         [DataTestMethod]
         public void TestRule(string text, params string[] useRecentApiVersions)
         {
@@ -138,7 +140,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentGAVersion);
+                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
                 });
         }
 
@@ -162,7 +164,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentGAVersion);
+                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
                 });
         }
 
@@ -238,7 +240,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
+                    x.Value.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
                 });
         }
 
@@ -268,7 +270,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentGAVersion);
+                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
                 });
         }
 
@@ -297,7 +299,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentGAVersion);
+                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
                 });
         }
 
@@ -324,7 +326,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
+                    x.Value.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
                 });
         }
 
@@ -377,7 +379,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
+                    x.Value.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
                 });
         }
 
@@ -410,7 +412,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentGAVersion);
+                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
                 });
         }
 
@@ -437,7 +439,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             spanFixes.Should().SatisfyRespectively(
                 x =>
                 {
-                    x.Value.Description.Should().Be("Use recent api version " + recentNonPreviewVersion + ApiVersionPrefixConstants.Alpha);
+                    x.Value.Description.Should().Be("Use recent API version " + recentNonPreviewVersion + ApiVersionPrefixConstants.Alpha);
                 });
         }
 

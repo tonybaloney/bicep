@@ -297,15 +297,14 @@
   <data name="PreferUnquotedPropertyNamesRuleDescription" xml:space="preserve">
     <value>Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation.</value>
   </data>
-  <data name="UseRecentApiVersionRuleDescription" xml:space="preserve">
-    <value>Use recent api version.</value>
-  </data>
   <data name="PreferUnquotedPropertyNamesRuleDescription" xml:space="preserve">
     <value>Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation.</value>
+  </data>
   <data name="UseRecentApiVersionRuleDescription" xml:space="preserve">
-    <value>Use a recent API version: asdfg</value>
+    <value>Use recent API versions</value>
   </data>
   <data name="UseRecentApiVersionRuleMessageFormat" xml:space="preserve">
     <value>Use recent API version {0}</value>
+    <comment>asdf</comment>
   </data>
 </root>

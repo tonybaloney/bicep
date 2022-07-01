@@ -436,6 +436,15 @@ namespace Bicep.Core {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation..
+        /// </summary>
+        internal static string PreferUnquotedPropertyNamesRuleDescription {
+            get {
+                return ResourceManager.GetString("PreferUnquotedPropertyNamesRuleDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Use protectedSettings for commandToExecute secrets.
         /// </summary>
         internal static string ProtectCommandToExecuteSecretsRuleDescription {
@@ -508,7 +517,7 @@ namespace Bicep.Core {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Use recent api version..
+        ///   Looks up a localized string similar to Use recent API versions.
         /// </summary>
         internal static string UseRecentApiVersionRuleDescription {
             get {
@@ -517,7 +526,7 @@ namespace Bicep.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Use recent api version {0}.
+        ///   Looks up a localized string similar to Use recent API version {0}.
         /// </summary>
         internal static string UseRecentApiVersionRuleMessageFormat {
             get {
