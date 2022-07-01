@@ -297,9 +297,6 @@
   <data name="PreferUnquotedPropertyNamesRuleDescription" xml:space="preserve">
     <value>Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation.</value>
   </data>
-  <data name="PreferUnquotedPropertyNamesRuleDescription" xml:space="preserve">
-    <value>Property names that are valid identifiers should be declared without quotation marks and accessed using dot notation.</value>
-  </data>
   <data name="UseRecentApiVersionRuleDescription" xml:space="preserve">
     <value>Use recent API versions</value>
   </data>
