@@ -46,32 +46,32 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             new LinterAnalyzer(BicepTestConstants.BuiltInConfiguration)).GetEntrypointSemanticModel();
 
         //asdfg will change with time
-        //[DataRow(@"
-        //    resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
-        //      name: 'name'
-        //      location: resourceGroup().location
-        //    }",
-        //    "2018-05-01")]
-        //[DataRow(@"
-        //    resource dnsZone 'Microsoft.Network/dnsZones@2017-10-01' = {
-        //      name: 'name'
-        //      location: resourceGroup().location
-        //    }",
-        //    "2018-05-01")]
-        //[DataRow(@"
-        //    resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
-        //      name: 'name'
-        //      location: resourceGroup().location
-        //    }")]
-        //[DataRow(@"
-        //    resource containerRegistry 'Microsoft.ContainerRegistry/registries@2020-11-01-preview' = {
-        //      name: 'name'
-        //      location: resourceGroup().location
-        //      sku: {
-        //        name: 'Basic'
-        //      }
-        //    }",
-        //    "2021-06-01-preview")]
+        [DataRow(@"
+            resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
+              name: 'name'
+              location: resourceGroup().location
+            }",
+            "2018-05-01")]
+        [DataRow(@"
+            resource dnsZone 'Microsoft.Network/dnsZones@2017-10-01' = {
+              name: 'name'
+              location: resourceGroup().location
+            }",
+            "2018-05-01")]
+        [DataRow(@"
+            resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
+              name: 'name'
+              location: resourceGroup().location
+            }")]
+        [DataRow(@"
+            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2020-11-01-preview' = {
+              name: 'name'
+              location: resourceGroup().location
+              sku: {
+                name: 'Basic'
+              }
+            }",
+            "2021-06-01-preview")]
         [DataRow(@"
             resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' = {
               name: 'name'
@@ -80,20 +80,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 name: 'Basic'
               }
             }")]
-        //asdfg
-        //[DataRow(@"
-        //    resource containerRegistry 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
-        //      name: 'name'
-        //      location: resourceGroup().location
-        //      sku: {
-        //        name: 'Basic'
-        //      }
-        //    }")]
-        //[DataRow(@"
-        //    resource appServicePlan 'Microsoft.Web/serverfarms@2021-01-01' = {
-        //      name: 'name'
-        //      location: resourceGroup().location
-        //    }")]
+        [DataRow(@"
+            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
+              name: 'name'
+              location: resourceGroup().location
+              sku: {
+                name: 'Basic'
+              }
+            }")]
+        [DataRow(@"
+            resource appServicePlan 'Microsoft.Web/serverfarms@2021-01-01' = {
+              name: 'name'
+              location: resourceGroup().location
+            }")]
         [DataTestMethod]
         public void TestRule(string text, params string[] useRecentApiVersions)
         {
