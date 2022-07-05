@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Bicep.Core.Analyzers.Linter;
 using Bicep.Core.Analyzers.Linter.Rules;
 using Bicep.Core.ApiVersion;
@@ -20,21 +19,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     [TestClass]
     public class UseRecentApiVersionRuleTests : LinterRuleTestsBase
     {
-        private void CompileAndTest(string text, params string[] useRecentApiVersions)
+        private void CompileAndTest(string bicep, params string[] expectedMessagesForCode)
         {
-            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, text, diags =>
-            {
-                if (useRecentApiVersions.Any())
-                {
-                    var rule = new UseRecentApiVersionRule();
-                    string[] expectedMessages = useRecentApiVersions.Select(p => rule.GetMessage(p)).ToArray();
-                    diags.Select(e => e.Message).Should().ContainInOrder(expectedMessages);
-                }
-                else
-                {
-                    diags.Should().BeEmpty();
-                }
-            });
+            CompileAndTest(bicep, OnCompileErrors.Include, expectedMessagesForCode);
+        }
+
+        private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors = OnCompileErrors.Include, params string[] expectedMessagesForCode)
+        {
+            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, bicep, expectedMessagesForCode, onCompileErrors);
+        }
+
+        private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None, params string[] expectedMessagesForCode)
+        {
+            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, bicep, expectedMessagesForCode, onCompileErrors, includePosition);
         }
 
         private SemanticModel SemanticModel => new Compilation(
@@ -45,13 +42,18 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             BicepTestConstants.ApiVersionProvider,
             new LinterAnalyzer(BicepTestConstants.BuiltInConfiguration)).GetEntrypointSemanticModel();
 
+        private string ConvertDateTimeToString(DateTime dateTime)
+        {
+            return dateTime.Year + "-" + dateTime.Month + "-" + dateTime.Day;
+        }
+
         //asdfg will change with time
         [DataRow(@"
             resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
               name: 'name'
               location: resourceGroup().location
             }",
-            "2018-05-01")]
+            "Use API version 2018-05-01")]
         [DataRow(@"
             resource dnsZone 'Microsoft.Network/dnsZones@2017-10-01' = {
               name: 'name'
@@ -94,9 +96,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
               location: resourceGroup().location
             }")]
         [DataTestMethod]
-        public void TestRule(string text, params string[] useRecentApiVersions)
+        public void TestRule(string text, params string[] expectedUseRecentApiVersions)
         {
-            CompileAndTest(text, useRecentApiVersions);
+            CompileAndTest(text, expectedUseRecentApiVersions);
         }
 
         [TestMethod]
@@ -499,9 +501,138 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             actual.Should().Be(DateTime.Parse(expectedVersion));
         }
 
-        private string ConvertDateTimeToString(DateTime dateTime)
+        [TestMethod]
+        public void ArmTtkTest_ApiVersionIsNotAnExpression()
         {
-            return dateTime.Year + "-" + dateTime.Month + "-" + dateTime.Day;
+            string bicep = @"
+                resource publicIPAddress1 'Microsoft.Network/publicIPAddresses@[concat(\'2020\', \'01-01\')]' = {
+                  name: 'publicIPAddress1'
+                  location: resourceGroup().location
+                  tags: {
+                    displayName: 'publicIPAddress1'
+                  }
+                  properties: {
+                    publicIPAllocationMethod: 'Dynamic'
+                  }
+                }";
+            CompileAndTest(bicep, "The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
+        }
+
+        [TestMethod]
+        public void NestedResources1()
+        {
+            string bicep = @"
+                param location string
+
+                resource namespace1 'Microsoft.ServiceBus/namespaces@2018-01-01-preview' = {
+                  name: 'namespace1'
+                  location: location
+                  properties: {
+                  }
+                }
+
+                // Using 'parent'
+                resource namespace1_queue1 'Microsoft.ServiceBus/namespaces/queues@2017-04-01' = {
+                  parent: namespace1
+                  name: 'queue1'
+                }
+
+                // Using 'parent'
+                resource namespace1_queue1_rule1 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2015-08-01' = {
+                  parent: namespace1_queue1
+                  name: 'rule1'
+                }
+
+                // Using nested name
+                resource namespace1_queue2 'Microsoft.ServiceBus/namespaces/queues@2017-04-01' = {
+                  name: 'namespace1/queue1'
+                }
+
+                // Using 'parent'
+                resource namespace1_queue2_rule2 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2018-01-01-preview' = {
+                  parent: namespace1_queue2
+                  name: 'rule2'
+                }
+
+                // Using nested name
+                resource namespace1_queue2_rule3 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
+                  name: 'namespace1/queue2/rule3'
+                }";
+
+            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber,
+                "[3] Use recent API versions",
+                "[11] Use recent API versions",
+                "[17] Use recent API versions",
+                "[23] Use recent API versions",
+                "[28] Use recent API versions",
+                "[34] Use recent API versions"
+                );
+        }
+
+        [TestMethod]
+        public void NestedResources2()
+        {
+            string bicep = @"
+                param location string
+
+                // Using resource nesting
+                resource namespace2 'Microsoft.ServiceBus/namespaces@2018-01-01-preview' = {
+                  name: 'namespace2'
+                  location: location
+
+                  resource queue1 'queues@2015-08-01' = {
+                    name: 'queue1'
+                    location: location
+
+                    resource rule1 'authorizationRules@2018-01-01-preview' = {
+                      name: 'rule1'
+                    }
+                  }
+                }
+
+                // Using nested name (parent is a nested resource)
+                resource namespace2_queue1_rule2 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
+                  name: 'namespace2/queue1/rule2'
+                }
+
+                // Using parent (parent is a nested resource)
+                resource namespace2_queue1_rule3 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
+                  parent: namespace2::queue1
+                  name: 'rule3'
+                }";
+
+            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber,
+                "[4] Use recent API versions",
+                "[8] Use recent API versions",
+                "[12] Use recent API versions",
+                "[19] Use recent API versions",
+                "[24] Use recent API versions"
+                );
+        }
+
+        [TestMethod]
+        public void ArmTtk_NotAString()
+        {
+            string bicep = @"
+                resource publicIPAddress1 'Microsoft.Network/publicIPAddresses@True' = {
+                name: 'publicIPAddress1'
+                location: 'westus'
+                tags: {
+                    displayName: 'publicIPAddress1'
+                }
+                properties: {
+                    publicIPAllocationMethod: 'Dynamic'
+                }
+            }
+            ";
+
+            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber,
+                "[4] Use recent API versions",
+                "[8] Use recent API versions",
+                "[12] Use recent API versions",
+                "[19] Use recent API versions",
+                "[24] Use recent API versions"
+                );
         }
     }
 }
