@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Bicep.Core.ApiVersion;
+using Bicep.Core.UnitTests.Diagnostics.LinterRuleTests;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -10,16 +11,21 @@ namespace Bicep.Core.UnitTests.ApiVersion
     [TestClass]
     public class ApiVersionProviderTests
     {
-        private readonly ApiVersionProvider ApiVersionProvider = new ApiVersionProvider();
+        private readonly ApiVersionProvider ApiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
 
         [DataRow("", ApiVersionPrefixConstants.Preview, null)]
         [DataRow("  ", ApiVersionPrefixConstants.Preview, null)]
         [DataRow("invalid-text", ApiVersionPrefixConstants.Preview, null)]
-        [DataRow("Microsoft.Network/dnsZones", null, null)]
-        [DataRow("Microsoft.Network/dnsZones", "-invalid-prefix", null)]
-        [DataRow("Microsoft.Network/dnsZones", ApiVersionPrefixConstants.GA, "2018-05-01")]
-        [DataRow("Microsoft.Network/dnsZones", ApiVersionPrefixConstants.Preview, "2018-03-01")]
-        [DataTestMethod]
+        [DataRow("fake.Network/dnszones", null, null)]
+        [DataRow("fake.Network/dnsZones", null, null)]
+        [DataRow("fake.Network/dnszones", "-invalid-prefix", null)]
+        [DataRow("fake.Network/dnsZones", "-invalid-prefix", null)]
+        [DataRow("fake.Network/dnszones", ApiVersionPrefixConstants.GA, "2018-05-01")]
+        [DataRow("fake.Network/dnsZones", ApiVersionPrefixConstants.GA, "2018-05-01")]
+        [DataRow("fake.Network/dnszones", ApiVersionPrefixConstants.Preview, "2018-03-01")]
+        [DataRow("fake.Network/dnsZones", ApiVersionPrefixConstants.Preview, "2018-03-01")]
+        [DataRow("fAKE.NETWORK/DNSZONES", ApiVersionPrefixConstants.Preview, "2018-03-01")]
+        [DataTestMethod] //asdfg casing
         public void GetRecentApiVersion(string fullyQualifiedName, string? prefix, string? expected)
         {
             string? actual = ApiVersionProvider.GetRecentApiVersion(fullyQualifiedName, prefix);
@@ -36,6 +42,7 @@ namespace Bicep.Core.UnitTests.ApiVersion
         [DataRow("2017-09-12-beta", "2017-09-12", ApiVersionPrefixConstants.Beta)]
         [DataRow("2020-06-01-preview", "2020-06-01", ApiVersionPrefixConstants.Preview)]
         [DataRow("2016-04-01-privatepreview", "2016-04-01", ApiVersionPrefixConstants.PrivatePreview)]
+        [DataRow("2016-04-01-PRIVATEPREVIEW", "2016-04-01", ApiVersionPrefixConstants.PrivatePreview)] //asdfg?
         [DataRow("2015-04-01-rc", "2015-04-01", ApiVersionPrefixConstants.RC)]
         [DataTestMethod]
         public void GetApiVersionAndPrefix(string apiVersionWithPrefix, string? expectedVersion, string? expectedPrefix)

@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -12,34 +13,42 @@ using Bicep.Core.TypeSystem.Az;
 
 namespace Bicep.Core.ApiVersion
 {
-    public class ApiVersionProvider : IApiVersionProvider
+    public class ApiVersionProvider : IApiVersionProvider //asdfg rename add AzResource
     {
-        private Dictionary<string, List<string>> alphaVersions = new();
-        private Dictionary<string, List<string>> betaVersions = new();
-        private Dictionary<string, List<string>> gaVersions = new();
-        private Dictionary<string, List<string>> previewVersions = new();
-        private Dictionary<string, List<string>> privatePreviewVersions = new();
-        private Dictionary<string, List<string>> rcVersions = new();
+        private static StringComparer Comparer = LanguageConstants.ResourceTypeComparer;
+
+        private Dictionary<string, List<string>> alphaVersions = new(Comparer);
+        private Dictionary<string, List<string>> betaVersions = new(Comparer);
+        private Dictionary<string, List<string>> gaVersions = new(Comparer);
+        private Dictionary<string, List<string>> previewVersions = new(Comparer);
+        private Dictionary<string, List<string>> privatePreviewVersions = new(Comparer);
+        private Dictionary<string, List<string>> rcVersions = new(Comparer);
 
         private static readonly Regex VersionPattern = new Regex(@"^((?<version>(\d{4}-\d{2}-\d{2}))(?<prefix>-(preview|alpha|beta|rc|privatepreview))?$)", RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         public ApiVersionProvider()
         {
-            CacheApiVersions();
-        }
-
-        private void CacheApiVersions()
-        {
             DefaultNamespaceProvider defaultNamespaceProvider = new DefaultNamespaceProvider(new AzResourceTypeLoader(), new FeatureProvider());
             NamespaceResolver namespaceResolver = NamespaceResolver.Create(defaultNamespaceProvider, TypeSystem.ResourceScope.ResourceGroup, Enumerable.Empty<ImportedNamespaceSymbol>());
             IEnumerable<ResourceTypeReference> resourceTypeReferences = namespaceResolver.GetAvailableResourceTypes();
 
+            CacheApiVersions(resourceTypeReferences);
+        }
+
+        // For testing
+        public ApiVersionProvider(IEnumerable<ResourceTypeReference> resourceTypeReferences)
+        {
+            CacheApiVersions(resourceTypeReferences);
+        }
+
+        private void CacheApiVersions(IEnumerable<ResourceTypeReference> resourceTypeReferences)
+        {
             foreach (var resourceTypeReference in resourceTypeReferences)
             {
                 (string? apiVersion, string? prefix) = resourceTypeReference.ApiVersion != null ? GetApiVersionAndPrefix(resourceTypeReference.ApiVersion) : (null, null);
                 if (prefix != null)
                 {
-                    string fullyQualifiedType = resourceTypeReference.FormatType(); //asdfg?
+                    string fullyQualifiedType = resourceTypeReference.FormatType(); //asdfg? really need to do this?
                     switch (prefix)
                     {
                         case ApiVersionPrefixConstants.GA:
@@ -64,11 +73,12 @@ namespace Bicep.Core.ApiVersion
                 }
             }
 
-            gaVersions = gaVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList());
-            alphaVersions = alphaVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList());
-            betaVersions = betaVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList());
-            previewVersions = previewVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList());
-            privatePreviewVersions = privatePreviewVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList());
+            // Sort the lists of api versions
+            gaVersions = gaVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
+            alphaVersions = alphaVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
+            betaVersions = betaVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
+            previewVersions = previewVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
+            privatePreviewVersions = privatePreviewVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
             rcVersions = rcVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList());
         }
 
