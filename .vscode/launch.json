@@ -41,6 +41,19 @@
             "stopAtEntry": false
         },
         {
+            "name": "K8sDecompiler",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "Build K8sDecompiler",
+            "program": "${workspaceFolder}/src/Bicep.K8sDecompiler/bin/Debug/net6.0/Azure.Bicep.K8sDecompiler.dll",
+            "args": [
+                "/workspaces/bicep/src/Bicep.K8sDecompiler/manifest.yml"
+            ],
+            "cwd": "${workspaceFolder}/src/Bicep.K8sDecompiler",
+            "console": "internalConsole",
+            "stopAtEntry": false
+        },
+        {
             "name": "Playground",
             "type": "node",
             "request": "launch",
