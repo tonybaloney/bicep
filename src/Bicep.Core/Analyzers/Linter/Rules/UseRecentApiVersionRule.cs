@@ -4,9 +4,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using Bicep.Core.ApiVersion;
 using Bicep.Core.CodeAction;
+using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Parsing;
 using Bicep.Core.Resources;
@@ -24,6 +26,8 @@ namespace Bicep.Core.Analyzers.Linter.Rules
     {
         public new const string Code = "use-recent-api-version";
 
+        private DateTime today = DateTime.Today;
+
         public UseRecentApiVersionRule() : base(
             code: Code,
             description: CoreResources.UseRecentApiVersionRuleDescription,
@@ -32,10 +36,22 @@ namespace Bicep.Core.Analyzers.Linter.Rules
         {
         }
 
+        public override void Configure(AnalyzersConfiguration config)
+        {
+            base.Configure(config);
+
+            // Today's date can be changed to enable testing/debug scenarios
+            string? debugToday = this.GetConfigurationValue<string?>("debug-today", null);
+            if (debugToday is not null)
+            {
+                this.today = DateTime.ParseExact(debugToday, "yyyy-mm-dd", CultureInfo.InvariantCulture);
+            }
+        }
+
         override public IEnumerable<IDiagnostic> AnalyzeInternal(SemanticModel model)
         {
             var spanFixes = new Dictionary<TextSpan, CodeFix>();
-            var visitor = new Visitor(spanFixes, model);
+            var visitor = new Visitor(spanFixes, model, today);
             visitor.Visit(model.SourceFile.ProgramSyntax);
 
             return spanFixes.Select(kvp => CreateFixableDiagnosticForSpan(kvp.Key, kvp.Value));
@@ -46,12 +62,14 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             private readonly IApiVersionProvider apiVersionProvider;
             private readonly SemanticModel model;
             private readonly Dictionary<TextSpan, CodeFix> spanFixes;
+            private readonly DateTime today;
 
-            public Visitor(Dictionary<TextSpan, CodeFix> spanFixes, SemanticModel model)
+            public Visitor(Dictionary<TextSpan, CodeFix> spanFixes, SemanticModel model, DateTime today)
             {
                 this.apiVersionProvider = model.ApiVersionProvider ?? new ApiVersionProvider();
                 this.spanFixes = spanFixes;
                 this.model = model;
+                this.today = today;
             }
 
             public override void VisitResourceDeclarationSyntax(ResourceDeclarationSyntax resourceDeclarationSyntax)
@@ -116,7 +134,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
                 DateTime currentApiVersionDate = DateTime.Parse(currentApiVersion);
 
-                if (DateTime.Now.Year - currentApiVersionDate.Year <= 2) //asdfg
+                if (today.Year - currentApiVersionDate.Year <= 2) //asdfg
                 {
                     return;
                 }

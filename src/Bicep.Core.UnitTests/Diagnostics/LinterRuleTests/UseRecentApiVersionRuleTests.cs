@@ -7,6 +7,8 @@ using Bicep.Core.Analyzers.Linter;
 using Bicep.Core.Analyzers.Linter.Rules;
 using Bicep.Core.ApiVersion;
 using Bicep.Core.CodeAction;
+using Bicep.Core.Configuration;
+using Bicep.Core.Json;
 using Bicep.Core.Parsing;
 using Bicep.Core.Semantics;
 using Bicep.Core.UnitTests.Utils;
@@ -16,35 +18,76 @@ using static Bicep.Core.Analyzers.Linter.Rules.UseRecentApiVersionRule;
 
 // asdfg test with case sensitivity
 // asdfg test with different scopes
+// asdfg does it need to understand imported types?
+// asdfg test two years
 namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 {
     [TestClass]
     public class UseRecentApiVersionRuleTests : LinterRuleTestsBase
     {
-        private void CompileAndTest(string bicep, params string[] expectedMessagesForCode)
+        // Welcome to the 25th century!
+        // All tests using CompileAndTest set this value as "today" as far as the rule is concerned
+        private string TESTING_TODAY_DATE = "2422-07-04";
+
+        public UseRecentApiVersionRuleTests()
         {
-            CompileAndTest(bicep, OnCompileErrors.Include, expectedMessagesForCode);
+            var analyzers = JsonElementFactory.CreateElement(@"
+                {
+                  ""core"": {
+                    ""enabled"": true,
+                    ""rules"": {
+                      ""use-recent-api-version"": {
+                          ""level"": ""warning"",
+                          ""debug-today"": ""<TESTING_TODAY_DATE>""
+                      }
+                    }
+                  }
+                }".Replace("<TESTING_TODAY_DATE>", TESTING_TODAY_DATE));
+
+            //asdfg needed?
+            ConfigurationWithTestingTodayDate = new RootConfiguration(
+                BicepTestConstants.BuiltInConfiguration.Cloud,
+                BicepTestConstants.BuiltInConfiguration.ModuleAliases,
+                new AnalyzersConfiguration(analyzers),
+                null);
         }
 
-        private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors = OnCompileErrors.Include, params string[] expectedMessagesForCode)
+        private void CompileAndTest(string bicep, params string[] expectedMessagesForCode)
         {
-            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, bicep, expectedMessagesForCode, onCompileErrors);
+            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber, expectedMessagesForCode);
         }
 
         private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None, params string[] expectedMessagesForCode)
         {
-            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, bicep, expectedMessagesForCode, onCompileErrors, includePosition);
+            //string config = @"
+            //  {
+            //    ""analyzers"": {
+            //      ""core"": {
+            //        ""enabled"": true,
+            //        ""rules"": {
+            //          ""use-recent-api-versions"": {
+            //              ""level"": ""warning"",
+            //              ""debugToday"": ""<TESTING_TODAY_DATE>""
+            //          }
+            //        }
+            //      }
+            //    }
+            //  }".Replace("<TESTING_TODAY_DATE>", TESTING_TODAY_DATE);
+
+            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, bicep, expectedMessagesForCode, onCompileErrors, includePosition, configuration: ConfigurationWithTestingTodayDate);
         }
 
         private IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
+
+        private RootConfiguration ConfigurationWithTestingTodayDate;
 
         private SemanticModel SemanticModelFakeResourceScope => new Compilation(
             BicepTestConstants.Features,
             TestTypeHelper.CreateEmptyProvider(),
             SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
-            BicepTestConstants.BuiltInConfiguration,
+            ConfigurationWithTestingTodayDate,
             FakeApiVersionProviderResourceScope,
-            new LinterAnalyzer(BicepTestConstants.BuiltInConfiguration)).GetEntrypointSemanticModel();
+            new LinterAnalyzer(ConfigurationWithTestingTodayDate)).GetEntrypointSemanticModel();
 
         private string ConvertDateTimeToString(DateTime dateTime)
         {
@@ -116,7 +159,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -136,7 +179,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -160,7 +203,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -184,7 +227,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -207,7 +250,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -233,7 +276,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -263,7 +306,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -292,7 +335,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -319,7 +362,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -346,7 +389,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -372,7 +415,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -405,7 +448,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -432,7 +475,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -465,7 +508,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -484,7 +527,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void GetApiVersionDate_WithInvalidVersion(string apiVersion)
         {
             Dictionary<TextSpan, CodeFix> spanFixes = new();
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             DateTime? actual = visitor.GetApiVersionDate(apiVersion);
 
@@ -498,7 +541,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void GetApiVersionDate_WithValidVersion(string apiVersion, string expectedVersion)
         {
             Dictionary<TextSpan, CodeFix> spanFixes = new();
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope);
+            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
 
             DateTime? actual = visitor.GetApiVersionDate(apiVersion);
 

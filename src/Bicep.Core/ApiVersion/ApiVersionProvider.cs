@@ -13,7 +13,7 @@ using Bicep.Core.TypeSystem.Az;
 
 namespace Bicep.Core.ApiVersion
 {
-    public class ApiVersionProvider : IApiVersionProvider //asdfg rename add AzResource
+    public class ApiVersionProvider : IApiVersionProvider
     {
         private static StringComparer Comparer = LanguageConstants.ResourceTypeComparer;
 
@@ -24,6 +24,7 @@ namespace Bicep.Core.ApiVersion
         private Dictionary<string, List<string>> privatePreviewVersions = new(Comparer);
         private Dictionary<string, List<string>> rcVersions = new(Comparer);
 
+        //asdfg case insensitive?
         private static readonly Regex VersionPattern = new Regex(@"^((?<version>(\d{4}-\d{2}-\d{2}))(?<prefix>-(preview|alpha|beta|rc|privatepreview))?$)", RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
         public ApiVersionProvider()
@@ -49,7 +50,7 @@ namespace Bicep.Core.ApiVersion
                 if (prefix != null)
                 {
                     string fullyQualifiedType = resourceTypeReference.FormatType(); //asdfg? really need to do this?
-                    switch (prefix)
+                    switch (prefix) //asdfg case insensitive?
                     {
                         case ApiVersionPrefixConstants.GA:
                             UpdateCache(gaVersions, apiVersion, fullyQualifiedType);

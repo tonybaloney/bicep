@@ -4,6 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Bicep.Core.Analyzers.Linter;
+using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
 using Bicep.Core.Features;
@@ -39,7 +41,8 @@ namespace Bicep.Core.UnitTests.Utils
             IAzResourceTypeLoader? AzResourceTypeLoader = null,
             IFeatureProvider? Features = null,
             EmitterSettings? EmitterSettings = null,
-            INamespaceProvider? NamespaceProvider = null)
+            INamespaceProvider? NamespaceProvider = null,
+            RootConfiguration? Configuration = null)
         {
             // TODO: can we use IoC here instead of DIY-ing it?
 
@@ -54,6 +57,9 @@ namespace Bicep.Core.UnitTests.Utils
 
             public EmitterSettings GetEmitterSettings()
                 => EmitterSettings ?? new EmitterSettings(GetFeatures());
+
+            public RootConfiguration GetConfiguration()
+                => Configuration ?? BicepTestConstants.BuiltInConfiguration;
         }
 
         public static CompilationResult Compile(CompilationHelperContext context, params (string fileName, string fileContents)[] files)
@@ -66,10 +72,11 @@ namespace Bicep.Core.UnitTests.Utils
             var (uriDictionary, entryUri) = CreateFileDictionary(bicepFiles);
             var fileResolver = new InMemoryFileResolver(CreateFileDictionary(systemFiles).files);
 
-            var configuration = BicepTestConstants.BuiltInConfiguration;
+            var configuration = context.GetConfiguration();
+
             var sourceFileGrouping = SourceFileGroupingFactory.CreateForFiles(uriDictionary, entryUri, fileResolver, configuration, context.GetFeatures());
 
-            return Compile(context, new Compilation(context.Features ?? BicepTestConstants.Features, context.GetNamespaceProvider(), sourceFileGrouping, configuration, BicepTestConstants.ApiVersionProvider, BicepTestConstants.LinterAnalyzer));
+            return Compile(context, new Compilation(context.Features ?? BicepTestConstants.Features, context.GetNamespaceProvider(), sourceFileGrouping, configuration, BicepTestConstants.ApiVersionProvider, new LinterAnalyzer(configuration)));
         }
 
         public static CompilationResult Compile(IAzResourceTypeLoader resourceTypeLoader, params (string fileName, string fileContents)[] files)

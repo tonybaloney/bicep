@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Bicep.Core.Analyzers.Linter;
+using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Text;
 using Bicep.Core.UnitTests.Assertions;
@@ -42,7 +43,30 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None)
+        //asdfg ?? 
+        static protected (string fileName, string fileContents) MainBicepFile(string bicepText)
+        {
+            return ("main.bicep", bicepText);
+        }
+
+        static protected (string fileName, string fileContents) ConfigFile(string configurationText)
+        {
+            return ("bicepconfig.json", configurationText);
+        }
+
+        static protected (string fileName, string fileContents)[] BicepFiles(string bicepText, string? configurationText)
+        {
+            List<(string fileName, string fileContents)> files = new List<(string fileName, string fileContents)>();
+            files.Add(MainBicepFile(bicepText));
+            if (configurationText is not null)
+            {
+                files.Add(ConfigFile(configurationText));
+            }
+
+            return files.ToArray();
+        }
+
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null)
         {
             var lineStarts = TextCoordinateConverter.GetLineStarts(bicepText);
 
@@ -50,34 +74,38 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             {
                 var messages = diags.Select(d => FormatDiagnostic(d, lineStarts, includePosition));
                 messages.Should().BeEquivalentTo(expectedMessagesForCode);
-            });
+            },
+            configuration);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition/*asdfg not used*/ = IncludePosition.None, RootConfiguration? configuration = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors, diags =>
             {
                 diags.Should().HaveCount(expectedDiagnosticCountForCode);
-            });
+            },
+            configuration);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null)
         {
-            AssertLinterRuleDiagnostics(ruleCode, bicepText, OnCompileErrors.Include, assertAction);
+            AssertLinterRuleDiagnostics(ruleCode, bicepText, OnCompileErrors.Include, assertAction, configuration);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null)
         {
             RunWithDiagnosticAnnotations(
-                  bicepText,
-                  diag => diag.Code == ruleCode || (onCompileErrors == OnCompileErrors.Include && diag.Level == DiagnosticLevel.Error),
-                  onCompileErrors,
-                  assertAction);
+                bicepText,
+                diag => diag.Code == ruleCode || (onCompileErrors == OnCompileErrors.Include && diag.Level == DiagnosticLevel.Error),
+                onCompileErrors,
+                assertAction,
+                configuration);
         }
 
-        private static void RunWithDiagnosticAnnotations(string bicepText, Func<IDiagnostic, bool> filterFunc, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction)
+        private static void RunWithDiagnosticAnnotations(string bicepText, Func<IDiagnostic, bool> filterFunc, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration)
         {
-            var result = CompilationHelper.Compile(bicepText);
+            var context = new CompilationHelper.CompilationHelperContext(Configuration: configuration);
+            var result = CompilationHelper.Compile(context, bicepText);
             using (new AssertionScope().WithFullSource(result.BicepFile))
             {
                 result.Should().NotHaveDiagnosticsWithCodes(new[] { LinterAnalyzer.LinterRuleInternalError }, "There should never be linter LinterRuleInternalError errors");
