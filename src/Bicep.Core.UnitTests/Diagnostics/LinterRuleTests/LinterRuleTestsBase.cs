@@ -21,7 +21,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public enum OnCompileErrors
         {
             Ignore, // Ignore any compile errors
-            Include, // Include compile errors in the list of messages to expect
+            IncludeErrors, // Include compile errors in the list of messages to expect
+            IncludeErrorsAndWarnings, // Include compile errors and warnings in the list of messages to expect
         }
 
         public enum IncludePosition
@@ -66,7 +67,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             return files.ToArray();
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null)
         {
             var lineStarts = TextCoordinateConverter.GetLineStarts(bicepText);
 
@@ -78,7 +79,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             configuration);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition/*asdfg not used*/ = IncludePosition.None, RootConfiguration? configuration = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition/*asdfg not used*/ = IncludePosition.None, RootConfiguration? configuration = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors, diags =>
             {
@@ -89,14 +90,16 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
         protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null)
         {
-            AssertLinterRuleDiagnostics(ruleCode, bicepText, OnCompileErrors.Include, assertAction, configuration);
+            AssertLinterRuleDiagnostics(ruleCode, bicepText, OnCompileErrors.IncludeErrors, assertAction, configuration);
         }
 
         protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null)
         {
             RunWithDiagnosticAnnotations(
                 bicepText,
-                diag => diag.Code == ruleCode || (onCompileErrors == OnCompileErrors.Include && diag.Level == DiagnosticLevel.Error),
+                diag => diag.Code == ruleCode
+                    || (onCompileErrors == OnCompileErrors.IncludeErrors && diag.Level == DiagnosticLevel.Error)
+                    || (onCompileErrors == OnCompileErrors.IncludeErrorsAndWarnings && (diag.Level == DiagnosticLevel.Error || diag.Level == DiagnosticLevel.Warning)),
                 onCompileErrors,
                 assertAction,
                 configuration);

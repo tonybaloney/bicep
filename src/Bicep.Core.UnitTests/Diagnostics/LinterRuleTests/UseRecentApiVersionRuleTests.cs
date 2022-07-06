@@ -20,6 +20,7 @@ using static Bicep.Core.Analyzers.Linter.Rules.UseRecentApiVersionRule;
 // asdfg test with different scopes
 // asdfg does it need to understand imported types?
 // asdfg test two years
+//asdfg deployment scopes
 namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 {
     [TestClass]
@@ -27,67 +28,80 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     {
         // Welcome to the 25th century!
         // All tests using CompileAndTest set this value as "today" as far as the rule is concerned
-        private string TESTING_TODAY_DATE = "2422-07-04";
+        private const string FAKE_TODAY_DATE = "2422-07-04";
 
         public UseRecentApiVersionRuleTests()
         {
-            var analyzers = JsonElementFactory.CreateElement(@"
-                {
-                  ""core"": {
-                    ""enabled"": true,
-                    ""rules"": {
-                      ""use-recent-api-version"": {
-                          ""level"": ""warning"",
-                          ""debug-today"": ""<TESTING_TODAY_DATE>""
-                      }
-                    }
-                  }
-                }".Replace("<TESTING_TODAY_DATE>", TESTING_TODAY_DATE));
 
-            //asdfg needed?
-            ConfigurationWithTestingTodayDate = new RootConfiguration(
-                BicepTestConstants.BuiltInConfiguration.Cloud,
-                BicepTestConstants.BuiltInConfiguration.ModuleAliases,
-                new AnalyzersConfiguration(analyzers),
+        }
+
+        private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors, params string[] expectedMessagesForCode)
+        {
+            // Test with today's date as normal
+            //
+            // The linter will use the fake resource types from FakeResourceTypes
+            // Note: The compiler does not know about these fake types, only the linter.
+
+            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
+               bicep,
+               expectedMessagesForCode,
+               onCompileErrors,
+               IncludePosition.LineNumber);
+        }
+
+        private void CompileAndTestWithFakeDate(string bicep, params string[] expectedMessagesForCode)
+        {
+            // Test with the linter thinking today's date is FAKE_TODAY_DATE
+            //
+            // The linter will use the fake resource types from FakeResourceTypes
+            // Note: The compiler does not know about these fake types, only the linter.
+
+            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
+                bicep,
+                expectedMessagesForCode,
+                OnCompileErrors.IncludeErrors,
+                IncludePosition.LineNumber,
+                configuration: ConfigurationWithFakeTodayDate);
+        }
+
+        // Uses fake resource types from FakeResourceTypes
+       //asdfg? private IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
+
+        // Uses fake date
+        private RootConfiguration ConfigurationWithFakeTodayDate = new RootConfiguration(
+            BicepTestConstants.BuiltInConfiguration.Cloud,
+            BicepTestConstants.BuiltInConfiguration.ModuleAliases,
+                new AnalyzersConfiguration(
+                     JsonElementFactory.CreateElement(@"
+                        {
+                          ""core"": {
+                            ""enabled"": true,
+                            ""rules"": {
+                              ""use-recent-api-version"": {
+                                  ""level"": ""warning"",
+                                  ""debug-today"": ""<TESTING_TODAY_DATE>""
+                              }
+                            }
+                          }
+                        }".Replace("<TESTING_TODAY_DATE>", FAKE_TODAY_DATE))),
                 null);
-        }
 
-        private void CompileAndTest(string bicep, params string[] expectedMessagesForCode)
-        {
-            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber, expectedMessagesForCode);
-        }
+        //asdfg
+        //private SemanticModel SemanticModelWithFakeResourceTypesAndFakeDate => new Compilation(
+        //    BicepTestConstants.Features,
+        //    TestTypeHelper.CreateEmptyProvider(),
+        //    SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
+        //    ConfigurationWithFakeTodayDate,
+        //    FakeApiVersionProviderResourceScope,
+        //    new LinterAnalyzer(ConfigurationWithFakeTodayDate)).GetEntrypointSemanticModel();
 
-        private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors = OnCompileErrors.Include, IncludePosition includePosition = IncludePosition.None, params string[] expectedMessagesForCode)
-        {
-            //string config = @"
-            //  {
-            //    ""analyzers"": {
-            //      ""core"": {
-            //        ""enabled"": true,
-            //        ""rules"": {
-            //          ""use-recent-api-versions"": {
-            //              ""level"": ""warning"",
-            //              ""debugToday"": ""<TESTING_TODAY_DATE>""
-            //          }
-            //        }
-            //      }
-            //    }
-            //  }".Replace("<TESTING_TODAY_DATE>", TESTING_TODAY_DATE);
-
-            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code, bicep, expectedMessagesForCode, onCompileErrors, includePosition, configuration: ConfigurationWithTestingTodayDate);
-        }
-
-        private IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
-
-        private RootConfiguration ConfigurationWithTestingTodayDate;
-
-        private SemanticModel SemanticModelFakeResourceScope => new Compilation(
-            BicepTestConstants.Features,
-            TestTypeHelper.CreateEmptyProvider(),
-            SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
-            ConfigurationWithTestingTodayDate,
-            FakeApiVersionProviderResourceScope,
-            new LinterAnalyzer(ConfigurationWithTestingTodayDate)).GetEntrypointSemanticModel();
+        private SemanticModel SemanticModel => new Compilation(
+           BicepTestConstants.Features,
+           TestTypeHelper.CreateEmptyProvider(),
+           SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
+           BicepTestConstants.BuiltInConfiguration,
+           BicepTestConstants.ApiVersionProvider,
+           new LinterAnalyzer(ConfigurationWithFakeTodayDate)).GetEntrypointSemanticModel();
 
         private string ConvertDateTimeToString(DateTime dateTime)
         {
@@ -145,7 +159,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [DataTestMethod]
         public void TestRule(string text, params string[] expectedUseRecentApiVersions)
         {
-            CompileAndTest(text, expectedUseRecentApiVersions);
+            CompileAndTestWithFakeDate(text, expectedUseRecentApiVersions);
         }
 
         [TestMethod]
@@ -159,7 +173,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -179,7 +193,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -203,7 +217,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -227,7 +241,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
@@ -250,7 +264,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -276,7 +290,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -306,7 +320,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -335,7 +349,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -362,7 +376,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -389,7 +403,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -415,7 +429,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -448,7 +462,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -475,7 +489,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
@@ -508,7 +522,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
@@ -527,7 +541,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void GetApiVersionDate_WithInvalidVersion(string apiVersion)
         {
             Dictionary<TextSpan, CodeFix> spanFixes = new();
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             DateTime? actual = visitor.GetApiVersionDate(apiVersion);
 
@@ -541,7 +555,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void GetApiVersionDate_WithValidVersion(string apiVersion, string expectedVersion)
         {
             Dictionary<TextSpan, CodeFix> spanFixes = new();
-            Visitor visitor = new Visitor(spanFixes, SemanticModelFakeResourceScope, DateTime.Today);
+            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
 
             DateTime? actual = visitor.GetApiVersionDate(apiVersion);
 
@@ -549,7 +563,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ArmTtkTest_ApiVersionIsNotAnExpression()
+        public void ArmTtkTest_ApiVersionIsNotAnExpression_Error()
         {
             string bicep = @"
                 resource publicIPAddress1 'fake.Network/publicIPAddresses@[concat(\'2020\', \'01-01\')]' = {
@@ -562,11 +576,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     publicIPAllocationMethod: 'Dynamic'
                   }
                 }";
-            CompileAndTest(bicep, "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
+            CompileAndTestWithFakeDate(bicep, "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
         }
 
         [TestMethod]
-        public void NestedResources1()
+        public void NestedResources1_Fail()
         {
             string bicep = @"
                 param location string
@@ -606,7 +620,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                   name: 'namespace1/queue2/rule3'
                 }";
 
-            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber,
+            CompileAndTestWithFakeDate(bicep,
                 "[3] Use recent API versions",
                 "[11] Use recent API versions",
                 "[17] Use recent API versions",
@@ -617,7 +631,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void NestedResources2()
+        public void NestedResources2_Fail()
         {
             string bicep = @"
                 param location string
@@ -648,7 +662,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                   name: 'rule3'
                 }";
 
-            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber,
+            CompileAndTestWithFakeDate(bicep,
                 "[4] Use recent API versions",
                 "[8] Use recent API versions",
                 "[12] Use recent API versions",
@@ -658,7 +672,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ArmTtk_NotAString()
+        public void ArmTtk_NotAString_Error()
         {
             string bicep = @"
                 resource publicIPAddress1 'Microsoft.Network/publicIPAddresses@True' = {
@@ -673,8 +687,295 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
             ";
 
-            CompileAndTest(bicep, OnCompileErrors.Include, IncludePosition.LineNumber,
+            CompileAndTestWithFakeDate(bicep,
                "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
+        }
+
+        //asdfg test with non-preview versions at least as recent (plus when only older)
+        [TestMethod]
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_Fail()
+        {
+            string bicep = @"
+                resource db 'Microsoft.DBforMySQL/servers@2017-12-01-preview' = {
+                  name: 'db]'
+                #disable-next-line no-hardcoded-location
+                  location: 'westeurope'
+                  properties: {
+                    administratorLogin: 'sa'
+                    administratorLoginPassword: 'don\'t put passwords in plain text'
+                    createMode: 'Default'
+                    sslEnforcement: 'Disabled'
+                  }
+                }
+            ";
+
+            CompileAndTestWithFakeDate(bicep,
+               "[1] Use recent apiVersions. There is a non-preview version of Microsoft.DBforMySQL/servers available. Acceptable API versions: 2017-12-01");
+        }
+
+        [TestMethod]
+        public void ExtensionResources_RoleAssignment_Pass()
+        {
+            // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            CompileAndTestWithFakeDate(@"
+                targetScope = 'subscription'
+
+                @description('The principal to assign the role to')
+                param principalId string
+
+                @allowed([
+                  'Owner'
+                  'Contributor'
+                  'Reader'
+                ])
+                @description('Built-in role to assign')
+                param builtInRoleType string
+
+                var role = {
+                  Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                  Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                  Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                }
+
+                resource roleAssignSub 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+                  name: guid(subscription().id, principalId, role[builtInRoleType])
+                  properties: {
+                    roleDefinitionId: role[builtInRoleType]
+                    principalId: principalId
+                  }
+                }");
+        }
+
+        [TestMethod]
+        public void ExtensionResources_Lock_Pass()
+        {
+            // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            CompileAndTestWithFakeDate(@"
+               resource createRgLock 'Microsoft.Authorization/locks@2016-09-01' = {
+                  name: 'rgLock'
+                  properties: {
+                    level: 'CanNotDelete'
+                    notes: 'Resource group should not be deleted.'
+                  }
+                }");
+        }
+
+        [TestMethod]
+        public void ExtensionResources_SubscriptionRole_Pass()
+        {
+            // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            CompileAndTestWithFakeDate(@"
+                targetScope = 'subscription'
+
+                @description('The principal to assign the role to')
+                param principalId string
+
+                @allowed([
+                  'Owner'
+                  'Contributor'
+                  'Reader'
+                ])
+                @description('Built-in role to assign')
+                param builtInRoleType string
+
+                var role = {
+                  Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                  Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                  Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                }
+
+                resource roleAssignSub 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+                  name: guid(subscription().id, principalId, role[builtInRoleType])
+                  properties: {
+                    roleDefinitionId: role[builtInRoleType]
+                    principalId: principalId
+                  }
+                }");
+        }
+
+        [TestMethod]
+        public void ExtensionResources_ScopeProperty_Pass()
+        {
+            // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            CompileAndTestWithFakeDate(@"
+                @description('The principal to assign the role to')
+                param principalId string
+
+                @allowed([
+                  'Owner'
+                  'Contributor'
+                  'Reader'
+                ])
+                @description('Built-in role to assign')
+                param builtInRoleType string
+
+                param location string = resourceGroup().location
+
+                var role = {
+                  Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                  Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                  Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                }
+                var uniqueStorageName = 'storage${uniqueString(resourceGroup().id)}'
+
+                resource demoStorageAcct 'Microsoft.Storage/storageAccounts@2019-04-01' = {
+                  name: uniqueStorageName
+                  location: location
+                  sku: {
+                    name: 'Standard_LRS'
+                  }
+                  kind: 'Storage'
+                  properties: {}
+                }
+
+                resource roleAssignStorage 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+                  name: guid(demoStorageAcct.id, principalId, role[builtInRoleType])
+                  properties: {
+                    roleDefinitionId: role[builtInRoleType]
+                    principalId: principalId
+                  }
+                  scope: demoStorageAcct
+                }");
+        }
+
+        [TestMethod]
+        public void ExtensionResources_ScopeProperty_ExistingResource_Pass()
+        {
+            // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            CompileAndTestWithFakeDate(@"
+                resource demoStorageAcct 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
+                  name: 'examplestore'
+                }
+
+                resource createStorageLock 'Microsoft.Authorization/locks@2016-09-01' = {
+                  name: 'storeLock'
+                  scope: demoStorageAcct
+                  properties: {
+                    level: 'CanNotDelete'
+                    notes: 'Storage account should not be deleted.'
+                  }
+                }");
+        }
+
+        [TestMethod]
+        public void TenantDeployment_OldApiVersion_Fail()
+        {
+            CompileAndTestWithFakeDate(@"
+                targetScope = 'tenant'
+
+                resource mgName_resource 'Microsoft.Management/managementGroups@2020-02-01' = {
+                  name: 'mg1'
+                }",
+                "asdfg todo");
+        }
+
+        [TestMethod]
+        public void SubscriptionDeployment_OldApiVersion_Fail()
+        {
+            CompileAndTestWithFakeDate(@"
+                targetScope='subscription'
+
+                param resourceGroupName string
+                param resourceGroupLocation string
+
+                resource newRG 'Microsoft.Resources/resourceGroups@2021-01-01' = {
+                  name: resourceGroupName
+                  location: resourceGroupLocation
+                }",
+                "asdfg todo");
+        }
+
+        [TestMethod]
+        public void ManagementGroupDeployment_OldApiVersion_Fail()
+        {
+            CompileAndTestWithFakeDate(@"
+                targetScope = 'managementGroup'
+
+                param mgName string = 'mg-${uniqueString(newGuid())}'
+
+                resource newMG 'Microsoft.Management/managementGroups@2020-05-01' = {
+                  scope: tenant()
+                  name: mgName
+                  properties: {}
+                }
+
+                output newManagementGroup string = mgName",
+                "asdfg todo");
+        }
+
+        [TestMethod]
+        public void ArmTtk_LatestStableApiOlderThan2Years_Pass()
+        {
+            CompileAndTestWithFakeDate(@"
+                @description('The name for the Slack connection.')
+                param slackConnectionName string = 'SlackConnection'
+
+                @description('Location for all resources.')
+                param location string
+
+                // The only available API versions are:
+                //    fake.Web/connections@2015-08-01-preview
+                //    fake.Web/connections@2016-06-01
+                // So this passes even though it's older than 2 years
+                resource slackConnectionName_resource 'Fke.Web/connections@2016-06-01' = {
+                  location: location
+                  name: slackConnectionName
+                  properties: {
+                    api: {
+                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+                    }
+                    displayName: 'slack'
+                  }
+                }");
+        }
+
+        [TestMethod]
+        public void UnrecognizedVersionApiOlderThan2Years_Pass_ButGetCompilerWarning()
+        {
+            // asdfg use today's date
+            CompileAndTest(@"
+                @description('The name for the Slack connection.')
+                param slackConnectionName string = 'SlackConnection'
+
+                @description('Location for all resources.')
+                param location string
+
+                resource slackConnectionName_resource 'Microsoft.Web/connections@2015-06-01' = { // Known type, unknown api version
+                  location: location
+                  name: slackConnectionName
+                  properties: {
+                    api: {
+                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+                    }
+                    displayName: 'slack'
+                  }
+                }",
+                OnCompileErrors.IncludeErrorsAndWarnings,
+                "[7] Resource type \"Microsoft.Web/connections@2015-06-01");
+        }
+
+        [TestMethod]
+        public void UnrecognizedResourceType_WithApiOlderThan2Years_Pass_ButGetCompilerWarning()
+        {
+            CompileAndTest(@"
+                @description('The name for the Slack connection.')
+                param slackConnectionName string = 'SlackConnection'
+
+                @description('Location for all resources.')
+                param location string
+
+                resource slackConnectionName_resource 'Microsoft.Unknown/connections@2015-06-01' = { // unknown resource type
+                  location: location
+                  name: slackConnectionName
+                  properties: {
+                    api: {
+                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+                    }
+                    displayName: 'slack'
+                  }
+                }",
+                 OnCompileErrors.IncludeErrorsAndWarnings,
+                "[7] Resource type \"Fake.Unknown/connections@2015-06-01\" does not have types available.");
         }
     }
 }
