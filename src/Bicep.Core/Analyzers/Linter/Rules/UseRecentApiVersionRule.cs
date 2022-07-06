@@ -93,7 +93,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     }
                     else
                     {
-                        string? recentNonPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, prefix);
+                        string? recentNonPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, prefix); //asdfg what are the rules here?
                         string? recentPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, ApiVersionPrefixConstants.Preview);
 
                         AddCodeFixIfNonGAVersionIsNotLatest(replacementSpan,
@@ -201,8 +201,8 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
                     KeyValuePair<string, DateTime> kvp = sortedPrefixToRecentApiVersionDateMap.First();
 
-                    if (DateTime.Compare(kvp.Value, currentVersionDate) > 0)
-                    {
+                    if (DateTime.Compare(kvp.Value, currentVersionDate) >= 0)
+                    {//asdfg?
                         Trace.WriteLine("Preview version");
                         Trace.WriteLine("Date1: " + kvp.Value);
                         Trace.WriteLine("Date2: " + currentVersionDate);

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Bicep.Core.Analyzers.Linter;
+using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
@@ -42,7 +43,8 @@ namespace Bicep.Core.UnitTests.Utils
             IFeatureProvider? Features = null,
             EmitterSettings? EmitterSettings = null,
             INamespaceProvider? NamespaceProvider = null,
-            RootConfiguration? Configuration = null)
+            RootConfiguration? Configuration = null,
+            IApiVersionProvider? ApiVersionProvider = null)
         {
             // TODO: can we use IoC here instead of DIY-ing it?
 
@@ -60,6 +62,9 @@ namespace Bicep.Core.UnitTests.Utils
 
             public RootConfiguration GetConfiguration()
                 => Configuration ?? BicepTestConstants.BuiltInConfiguration;
+
+            public IApiVersionProvider GetApiVersionProvider()
+                => ApiVersionProvider ?? BicepTestConstants.ApiVersionProvider;
         }
 
         public static CompilationResult Compile(CompilationHelperContext context, params (string fileName, string fileContents)[] files)
@@ -73,10 +78,11 @@ namespace Bicep.Core.UnitTests.Utils
             var fileResolver = new InMemoryFileResolver(CreateFileDictionary(systemFiles).files);
 
             var configuration = context.GetConfiguration();
+            var apiVersionProvider = context.GetApiVersionProvider();
 
             var sourceFileGrouping = SourceFileGroupingFactory.CreateForFiles(uriDictionary, entryUri, fileResolver, configuration, context.GetFeatures());
 
-            return Compile(context, new Compilation(context.Features ?? BicepTestConstants.Features, context.GetNamespaceProvider(), sourceFileGrouping, configuration, BicepTestConstants.ApiVersionProvider, new LinterAnalyzer(configuration)));
+            return Compile(context, new Compilation(context.Features ?? BicepTestConstants.Features, context.GetNamespaceProvider(), sourceFileGrouping, configuration, apiVersionProvider, new LinterAnalyzer(configuration)));
         }
 
         public static CompilationResult Compile(IAzResourceTypeLoader resourceTypeLoader, params (string fileName, string fileContents)[] files)

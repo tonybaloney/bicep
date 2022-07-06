@@ -37,11 +37,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
         private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors, params string[] expectedMessagesForCode)
         {
-            // Test with today's date as normal
-            //
-            // The linter will use the fake resource types from FakeResourceTypes
-            // Note: The compiler does not know about these fake types, only the linter.
-
+            // Test with today's date and real types.
             AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
                bicep,
                expectedMessagesForCode,
@@ -49,11 +45,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                IncludePosition.LineNumber);
         }
 
-        private void CompileAndTestWithFakeDate(string bicep, params string[] expectedMessagesForCode)
+        private void CompileAndTestWithFakeDateAndTypes(string bicep, params string[] expectedMessagesForCode)
         {
-            // Test with the linter thinking today's date is FAKE_TODAY_DATE
-            //
-            // The linter will use the fake resource types from FakeResourceTypes
+            // Test with the linter thinking today's date is FAKE_TODAY_DATE and also fake resource types from FakeResourceTypes
             // Note: The compiler does not know about these fake types, only the linter.
 
             AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
@@ -61,30 +55,31 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 expectedMessagesForCode,
                 OnCompileErrors.IncludeErrors,
                 IncludePosition.LineNumber,
-                configuration: ConfigurationWithFakeTodayDate);
+                configuration: ConfigurationWithFakeTodayDate,
+                apiVersionProvider: FakeApiVersionProviderResourceScope);
+        }
+
+        private void CompileAndTestWithFakeDateAndTypes(string bicep, string[] resourceTypes, string fakeToday, params string[] expectedMessagesForCode)
+        {
+            // Test with the linter thinking today's date is FAKE_TODAY_DATE and also fake resource types from FakeResourceTypes
+            // Note: The compiler does not know about these fake types, only the linter.
+
+            var apiProvider = FakeResourceTypes.GetFakeTypes(string.Join('\n', resourceTypes));
+
+            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
+                bicep,
+                expectedMessagesForCode,
+                OnCompileErrors.IncludeErrors,
+                IncludePosition.LineNumber,
+                configuration: CreateConfigurationWithFakeToday(fakeToday),
+                apiVersionProvider: FakeApiVersionProviderResourceScope);
         }
 
         // Uses fake resource types from FakeResourceTypes
-       //asdfg? private IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
+        private IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
 
-        // Uses fake date
-        private RootConfiguration ConfigurationWithFakeTodayDate = new RootConfiguration(
-            BicepTestConstants.BuiltInConfiguration.Cloud,
-            BicepTestConstants.BuiltInConfiguration.ModuleAliases,
-                new AnalyzersConfiguration(
-                     JsonElementFactory.CreateElement(@"
-                        {
-                          ""core"": {
-                            ""enabled"": true,
-                            ""rules"": {
-                              ""use-recent-api-version"": {
-                                  ""level"": ""warning"",
-                                  ""debug-today"": ""<TESTING_TODAY_DATE>""
-                              }
-                            }
-                          }
-                        }".Replace("<TESTING_TODAY_DATE>", FAKE_TODAY_DATE))),
-                null);
+        // Uses fake today's date
+        private RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
 
         //asdfg
         //private SemanticModel SemanticModelWithFakeResourceTypesAndFakeDate => new Compilation(
@@ -102,6 +97,27 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
            BicepTestConstants.BuiltInConfiguration,
            BicepTestConstants.ApiVersionProvider,
            new LinterAnalyzer(ConfigurationWithFakeTodayDate)).GetEntrypointSemanticModel();
+
+        private static RootConfiguration CreateConfigurationWithFakeToday(string today)
+        {
+            return new RootConfiguration(
+                BicepTestConstants.BuiltInConfiguration.Cloud,
+                BicepTestConstants.BuiltInConfiguration.ModuleAliases,
+                    new AnalyzersConfiguration(
+                         JsonElementFactory.CreateElement(@"
+                            {
+                              ""core"": {
+                                ""enabled"": true,
+                                ""rules"": {
+                                  ""use-recent-api-version"": {
+                                      ""level"": ""warning"",
+                                      ""debug-today"": ""<TESTING_TODAY_DATE>""
+                                  }
+                                }
+                              }
+                            }".Replace("<TESTING_TODAY_DATE>", today))),
+                null);
+        }
 
         private string ConvertDateTimeToString(DateTime dateTime)
         {
@@ -159,7 +175,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [DataTestMethod]
         public void TestRule(string text, params string[] expectedUseRecentApiVersions)
         {
-            CompileAndTestWithFakeDate(text, expectedUseRecentApiVersions);
+            CompileAndTestWithFakeDateAndTypes(text, expectedUseRecentApiVersions);
         }
 
         [TestMethod]
@@ -576,7 +592,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     publicIPAllocationMethod: 'Dynamic'
                   }
                 }";
-            CompileAndTestWithFakeDate(bicep, "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
+            CompileAndTestWithFakeDateAndTypes(bicep, "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
         }
 
         [TestMethod]
@@ -620,7 +636,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                   name: 'namespace1/queue2/rule3'
                 }";
 
-            CompileAndTestWithFakeDate(bicep,
+            CompileAndTestWithFakeDateAndTypes(bicep,
                 "[3] Use recent API versions",
                 "[11] Use recent API versions",
                 "[17] Use recent API versions",
@@ -662,7 +678,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                   name: 'rule3'
                 }";
 
-            CompileAndTestWithFakeDate(bicep,
+            CompileAndTestWithFakeDateAndTypes(bicep,
                 "[4] Use recent API versions",
                 "[8] Use recent API versions",
                 "[12] Use recent API versions",
@@ -687,16 +703,16 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
             ";
 
-            CompileAndTestWithFakeDate(bicep,
+            CompileAndTestWithFakeDateAndTypes(bicep,
                "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
         }
 
         //asdfg test with non-preview versions at least as recent (plus when only older)
         [TestMethod]
-        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_Fail()
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithSameDate_Fail()
         {
             string bicep = @"
-                resource db 'Microsoft.DBforMySQL/servers@2017-12-01-preview' = {
+                resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
                   name: 'db]'
                 #disable-next-line no-hardcoded-location
                   location: 'westeurope'
@@ -709,15 +725,77 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 }
             ";
 
-            CompileAndTestWithFakeDate(bicep,
-               "[1] Use recent apiVersions. There is a non-preview version of Microsoft.DBforMySQL/servers available. Acceptable API versions: 2017-12-01");
+            CompileAndTestWithFakeDateAndTypes(
+                bicep,
+                new string[]
+                {
+                   "Fake.DBforMySQL/servers@2417-12-01",
+                   "Fake.DBforMySQL/servers@2417-12-01-preview",
+                },
+                fakeToday: "2422-07-04",
+                "[1] Use recent apiVersions. There is a non-preview version of Fake.DBforMySQL/servers available. Acceptable API versions: 2417-12-01");
+        }
+
+        [TestMethod]
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithLaterDate_Fail()
+        {
+            string bicep = @"
+                resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
+                  name: 'db]'
+                #disable-next-line no-hardcoded-location
+                  location: 'westeurope'
+                  properties: {
+                    administratorLogin: 'sa'
+                    administratorLoginPassword: 'don\'t put passwords in plain text'
+                    createMode: 'Default'
+                    sslEnforcement: 'Disabled'
+                  }
+                }
+            ";
+
+            CompileAndTestWithFakeDateAndTypes(
+                bicep,
+                new string[]
+                {
+                   "Fake.DBforMySQL/servers@2417-12-02",
+                   "Fake.DBforMySQL/servers@2417-12-01-preview",
+                },
+                fakeToday: "2422-07-04",
+                "[1] Use recent apiVersions. There is a non-preview version of Fake.DBforMySQL/servers available. Acceptable API versions: 2417-12-01");
+        }
+
+        [TestMethod]
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithEarlierDate_Pass()
+        {
+            string bicep = @"
+                resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
+                  name: 'db]'
+                #disable-next-line no-hardcoded-location
+                  location: 'westeurope'
+                  properties: {
+                    administratorLogin: 'sa'
+                    administratorLoginPassword: 'don\'t put passwords in plain text'
+                    createMode: 'Default'
+                    sslEnforcement: 'Disabled'
+                  }
+                }
+            ";
+
+            CompileAndTestWithFakeDateAndTypes(
+                bicep,
+                new string[]
+                {
+                   "Fake.DBforMySQL/servers@2417-11-31",
+                   "Fake.DBforMySQL/servers@2417-12-01-preview",
+                },
+                fakeToday: "2422-07-04");
         }
 
         [TestMethod]
         public void ExtensionResources_RoleAssignment_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 targetScope = 'subscription'
 
                 @description('The principal to assign the role to')
@@ -750,7 +828,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ExtensionResources_Lock_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                resource createRgLock 'Microsoft.Authorization/locks@2016-09-01' = {
                   name: 'rgLock'
                   properties: {
@@ -764,7 +842,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ExtensionResources_SubscriptionRole_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 targetScope = 'subscription'
 
                 @description('The principal to assign the role to')
@@ -797,7 +875,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ExtensionResources_ScopeProperty_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 @description('The principal to assign the role to')
                 param principalId string
 
@@ -842,7 +920,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ExtensionResources_ScopeProperty_ExistingResource_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 resource demoStorageAcct 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
                   name: 'examplestore'
                 }
@@ -860,7 +938,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [TestMethod]
         public void TenantDeployment_OldApiVersion_Fail()
         {
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 targetScope = 'tenant'
 
                 resource mgName_resource 'Microsoft.Management/managementGroups@2020-02-01' = {
@@ -872,7 +950,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [TestMethod]
         public void SubscriptionDeployment_OldApiVersion_Fail()
         {
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 targetScope='subscription'
 
                 param resourceGroupName string
@@ -888,7 +966,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [TestMethod]
         public void ManagementGroupDeployment_OldApiVersion_Fail()
         {
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 targetScope = 'managementGroup'
 
                 param mgName string = 'mg-${uniqueString(newGuid())}'
@@ -906,7 +984,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [TestMethod]
         public void ArmTtk_LatestStableApiOlderThan2Years_Pass()
         {
-            CompileAndTestWithFakeDate(@"
+            CompileAndTestWithFakeDateAndTypes(@"
                 @description('The name for the Slack connection.')
                 param slackConnectionName string = 'SlackConnection'
 
@@ -932,7 +1010,6 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [TestMethod]
         public void UnrecognizedVersionApiOlderThan2Years_Pass_ButGetCompilerWarning()
         {
-            // asdfg use today's date
             CompileAndTest(@"
                 @description('The name for the Slack connection.')
                 param slackConnectionName string = 'SlackConnection'
