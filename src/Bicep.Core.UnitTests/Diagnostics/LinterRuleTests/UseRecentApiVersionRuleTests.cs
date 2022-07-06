@@ -552,7 +552,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ArmTtkTest_ApiVersionIsNotAnExpression()
         {
             string bicep = @"
-                resource publicIPAddress1 'Microsoft.Network/publicIPAddresses@[concat(\'2020\', \'01-01\')]' = {
+                resource publicIPAddress1 'fake.Network/publicIPAddresses@[concat(\'2020\', \'01-01\')]' = {
                   name: 'publicIPAddress1'
                   location: resourceGroup().location
                   tags: {
@@ -562,7 +562,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     publicIPAllocationMethod: 'Dynamic'
                   }
                 }";
-            CompileAndTest(bicep, "The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
+            CompileAndTest(bicep, "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
         }
 
         [TestMethod]
@@ -571,7 +571,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             string bicep = @"
                 param location string
 
-                resource namespace1 'Microsoft.ServiceBus/namespaces@2018-01-01-preview' = {
+                resource namespace1 'fake.ServiceBus/namespaces@2018-01-01-preview' = {
                   name: 'namespace1'
                   location: location
                   properties: {
@@ -579,30 +579,30 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 }
 
                 // Using 'parent'
-                resource namespace1_queue1 'Microsoft.ServiceBus/namespaces/queues@2017-04-01' = {
+                resource namespace1_queue1 'fake.ServiceBus/namespaces/queues@2017-04-01' = {
                   parent: namespace1
                   name: 'queue1'
                 }
 
                 // Using 'parent'
-                resource namespace1_queue1_rule1 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2015-08-01' = {
+                resource namespace1_queue1_rule1 'fake.ServiceBus/namespaces/queues/authorizationRules@2015-08-01' = {
                   parent: namespace1_queue1
                   name: 'rule1'
                 }
 
                 // Using nested name
-                resource namespace1_queue2 'Microsoft.ServiceBus/namespaces/queues@2017-04-01' = {
+                resource namespace1_queue2 'fake.ServiceBus/namespaces/queues@2017-04-01' = {
                   name: 'namespace1/queue1'
                 }
 
                 // Using 'parent'
-                resource namespace1_queue2_rule2 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2018-01-01-preview' = {
+                resource namespace1_queue2_rule2 'fake.ServiceBus/namespaces/queues/authorizationRules@2018-01-01-preview' = {
                   parent: namespace1_queue2
                   name: 'rule2'
                 }
 
                 // Using nested name
-                resource namespace1_queue2_rule3 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
+                resource namespace1_queue2_rule3 'fake.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
                   name: 'namespace1/queue2/rule3'
                 }";
 
