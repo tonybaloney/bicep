@@ -81,15 +81,6 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         // Uses fake today's date
         private RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
 
-        //asdfg
-        //private SemanticModel SemanticModelWithFakeResourceTypesAndFakeDate => new Compilation(
-        //    BicepTestConstants.Features,
-        //    TestTypeHelper.CreateEmptyProvider(),
-        //    SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
-        //    ConfigurationWithFakeTodayDate,
-        //    FakeApiVersionProviderResourceScope,
-        //    new LinterAnalyzer(ConfigurationWithFakeTodayDate)).GetEntrypointSemanticModel();
-
         private SemanticModel SemanticModel => new Compilation(
            BicepTestConstants.Features,
            TestTypeHelper.CreateEmptyProvider(),
@@ -579,7 +570,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ArmTtkTest_ApiVersionIsNotAnExpression_Error()
+        public void ArmTtk_ApiVersionIsNotAnExpression_Error()
         {
             string bicep = @"
                 resource publicIPAddress1 'fake.Network/publicIPAddresses@[concat(\'2020\', \'01-01\')]' = {
@@ -709,7 +700,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
         //asdfg test with non-preview versions at least as recent (plus when only older)
         [TestMethod]
-        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithSameDate_Fail()
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithSameDateAsStable_Fail()
         {
             string bicep = @"
                 resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
@@ -737,7 +728,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithLaterDate_Fail()
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithLaterDateThanStable_Fail()
         {
             string bicep = @"
                 resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
@@ -765,7 +756,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithEarlierDate_Pass()
+        public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithEarlierDateThanStable_Pass()
         {
             string bicep = @"
                 resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
@@ -789,6 +780,48 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                    "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
                 fakeToday: "2422-07-04");
+        }
+
+        //asdfg what if only beta/etc?
+        [TestMethod]
+        public void ArmTtk_OnlyPreviewAvailable_EvenIfOld_Pass()
+        {
+            string bicep = @"
+               resource namespace 'Microsoft.DevTestLab/schedules@2417-08-01-preview' = {
+                  name: 'namespace'
+                  location: 'global'
+                  properties: {
+                  }
+               }";
+
+            CompileAndTestWithFakeDateAndTypes(
+                bicep,
+                new string[]
+                {
+                   "Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview",
+                   "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
+                },
+                fakeToday: "2422-07-04");
+        }
+
+        [TestMethod]
+        public void NewerPreviewAvailable_Fail()
+        {
+            string bicep = @"
+               resource namespace 'Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview' = {
+                  name: 'clusters'
+                  location: 'global'
+               }";
+
+            CompileAndTestWithFakeDateAndTypes(
+                bicep,
+                new string[]
+                {
+                   "Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview",
+                   "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
+                },
+                fakeToday: "2422-07-04",
+                "asdfg fail");
         }
 
         [TestMethod]
@@ -1053,6 +1086,33 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 }",
                  OnCompileErrors.IncludeErrorsAndWarnings,
                 "[7] Resource type \"Fake.Unknown/connections@2015-06-01\" does not have types available.");
+        }
+
+        [TestMethod]
+        public void ArmTtk_ProviderResource()
+        {
+
+            CompileAndTestWithFakeDateAndTypes(@"
+                @description('The name for the Slack connection.')
+                param slackConnectionName string = 'SlackConnection'
+
+                @description('Location for all resources.')
+                param location string
+
+                resource slackConnectionName_resource 'Microsoft.Unknown/connections@2015-06-01' = { // unknown resource type
+                  location: location
+                  name: slackConnectionName
+                  properties: {
+                    api: {
+                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+                    }
+                    displayName: 'slack'
+                  }
+                }",
+                new string[] {
+                "asdf??"
+                },
+                "asdf??");
         }
     }
 }
