@@ -58,7 +58,7 @@ namespace Bicep.Core.ApiVersions
                 }
                 else
                 {
-                    throw new InvalidOperationException($"Unexpected API version format found: {resourceTypeReference.FormatType()}");
+                    throw new InvalidOperationException($"Invalid API version found: {resourceTypeReference.FormatType()}");
                 }
             }
 

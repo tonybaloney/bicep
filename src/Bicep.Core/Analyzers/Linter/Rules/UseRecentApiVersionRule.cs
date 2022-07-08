@@ -159,6 +159,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return null;
             }
 
+            //asdfg handle when there's a newer non-preview version
             public static string[] GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, string fullyQualifiedResourceType)
             {
                 var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(fullyQualifiedResourceType);
@@ -193,9 +194,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                         acceptableVersions.Add(mostRecentStableVersion);
                     }
 
-                    // If there are also no recent preview resources, allow only those with the most recent date
-                    // if it is newer than the stable one, or if there are no stable ones.
-                    // (Only allow the single most recent date - in the weird case where there are
+                    // If there are also no recent preview resources, allow only those with the most recent date, but only if
+                    // it is newer than the stable one, or if there are no stable ones.
+                    // (Only allow the single most recent preview date - in the weird case where there are
                     // multiple preview versions with that same date, take all those with that date).
                     if (!recentPreviewVersionsSorted.Any())
                     {

@@ -15,7 +15,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             var lines = fakeTypesAsText
                 .ReplaceLineEndings("\n")
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim());
+                .Select(line => line.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s));
             foreach (string line in lines)
             {
                 var resourcType = ResourceTypeReference.Parse(line);

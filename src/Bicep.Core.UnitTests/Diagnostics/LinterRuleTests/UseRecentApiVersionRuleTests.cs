@@ -135,7 +135,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 TestGetAcceptableApiVersions(
                     "Fake.KUSTO/clusters",
                     @"
-                        Fake.Kusto/clusters@2418-09-07-preview",
+                        Fake.Kusto/clusters@2418-09-07-preview
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -149,7 +150,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 TestGetAcceptableApiVersions(
                     "Fake.KUSTO/clusters",
                     @"
-                        Fake.Kusto/clusters@2418-09-07-PREVIEW",
+                        Fake.Kusto/clusters@2418-09-07-PREVIEW
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -163,7 +165,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 TestGetAcceptableApiVersions(
                     "Fake.Kisto/clusters",
                     @"
-                        Fake.Kusto/clusters@2421-01-01",
+                        Fake.Kusto/clusters@2421-01-01
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -179,7 +182,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     @"
                         Fake.Kusto/clusters@2413-01-21-preview
                         Fake.Kusto/clusters@2413-05-15-beta
-                        Fake.Kusto/clusters@2413-09-07-alpha",
+                        Fake.Kusto/clusters@2413-09-07-alpha
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -196,7 +200,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-01-21-preview
                         Fake.Kusto/clusters@2413-05-15-beta
                         Fake.Kusto/clusters@2413-09-07-alpha
-                        Fake.Kusto/clusters@2413-09-07-beta",
+                        Fake.Kusto/clusters@2413-09-07-beta
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -213,7 +218,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     @"
                         Fake.Kusto/clusters@2419-07-21-preview
                         Fake.Kusto/clusters@2419-08-15-beta
-                        Fake.Kusto/clusters@2419-09-07-alpha",
+                        Fake.Kusto/clusters@2419-09-07-alpha
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -235,7 +241,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2419-07-21-beta
                         Fake.Kusto/clusters@2419-08-15-privatepreview
                         Fake.Kusto/clusters@2419-09-07-beta
-                        Fake.Kusto/clusters@2419-09-07-privatepreview",
+                        Fake.Kusto/clusters@2419-09-07-privatepreview
+                    ",
 
                     "2421-07-07",
                     new string[]
@@ -262,7 +269,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2414-05-15-beta
                         Fake.Kusto/clusters@2415-09-07-alpha
                         Fake.Kusto/clusters@2419-08-21-beta
-                        Fake.Kusto/clusters@2419-09-07-beta",
+                        Fake.Kusto/clusters@2419-09-07-beta
+                    ",
 
                     "2421-07-07",
                     new string[]
@@ -285,7 +293,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2419-11-09
                         Fake.Kusto/clusters@2420-02-15
                         Fake.Kusto/clusters@2420-06-14
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2500-07-07",
                     new string[]
                     {
@@ -302,7 +311,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-01-21
                         Fake.Kusto/clusters@2413-05-15
                         Fake.Kusto/clusters@2413-06-15-preview
-                        Fake.Kusto/clusters@2413-09-07",
+                        Fake.Kusto/clusters@2413-09-07
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -320,7 +330,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-05-15
                         Fake.Kusto/clusters@2413-06-15-preview
                         Fake.Kusto/clusters@2413-06-15
-                        Fake.Kusto/clusters@2413-06-15-beta",
+                        Fake.Kusto/clusters@2413-06-15-beta
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -339,7 +350,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-05-15
                         Fake.Kusto/clusters@2413-06-15
                         Fake.Kusto/clusters@2413-09-07-preview
-                        Fake.Kusto/clusters@2413-09-07-beta",
+                        Fake.Kusto/clusters@2413-09-07-beta
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -359,7 +371,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-05-15
                         Fake.Kusto/clusters@2413-06-15
                         Fake.Kusto/clusters@2419-09-07-preview
-                        Fake.Kusto/clusters@2419-09-07-beta",
+                        Fake.Kusto/clusters@2419-09-07-beta
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -379,7 +392,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-05-15
                         Fake.Kusto/clusters@2413-06-15-beta
                         Fake.Kusto/clusters@2419-09-07-preview
-                        Fake.Kusto/clusters@2419-09-07-beta",
+                        Fake.Kusto/clusters@2419-09-07-beta
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -398,7 +412,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     @"
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-08-15
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -417,7 +432,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-07-15-alpha
                         Fake.Kusto/clusters@2419-07-16-beta
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -438,7 +454,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-07-15-alpha
                         Fake.Kusto/clusters@2419-07-16-beta
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -460,7 +477,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2419-05-15
                         Fake.Kusto/clusters@2419-09-07
                         Fake.Kusto/clusters@2421-01-01
-                        Fake.Kusto/clusters@2425-01-01",
+                        Fake.Kusto/clusters@2425-01-01
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -486,7 +504,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2415-11-09
                         Fake.Kusto/clusters@2415-02-15
                         Fake.Kusto/clusters@2420-06-14
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -509,7 +528,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2415-11-09
                         Fake.Kusto/clusters@2415-02-15
                         Fake.Kusto/clusters@2420-06-14
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -536,7 +556,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2415-11-09
                         Fake.Kusto/clusters@2415-02-15
                         Fake.Kusto/clusters@2420-06-14
-                        Fake.Kusto/clusters@2420-09-18",
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
@@ -1087,6 +1108,97 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         //asdfg test with non-preview versions at least as recent (plus when only older)
+        // current algorithm:
+        //   complain if there's a stable with same date as the preview being used (but only if apiversion not found)
+        //   comaplin if there's a more recent stable than the preview being used (but only if old)
+        // e.g.
+        /* 
+          "Microsoft.SecurityInsights/threatIntelligence": [
+    {
+      "aliases": null,
+      "apiProfiles": null,
+      "apiVersions": [
+        "2022-07-01-preview",
+        "2022-06-01-preview",
+        "2022-05-01-preview",
+        "2022-04-01-preview",
+        "2022-01-01-preview",
+        "2021-10-01-preview",
+        "2021-10-01",
+        "2021-09-01-preview",
+        "2021-04-01",
+        "2019-01-01-preview"
+      ],
+        */
+
+
+        //asdfg
+        /*
+           "Microsoft.DBforMySQL/operations": [
+    {
+      "aliases": null,
+      "apiProfiles": null,
+      "apiVersions": [
+        "2021-12-01-preview", pass
+        "2021-05-01-preview", pass
+        "2021-05-01", pass
+        "2017-12-01-preview", fail (newer stable lavailabe)
+        "2017-12-01"  fail
+      ],
+        */
+
+
+        /*asdfg
+
+        "Microsoft.DataProtection/ResourceGuards": [
+    {
+      "aliases": null,
+      "apiProfiles": null,
+      "apiVersions": [
+        "2022-05-01",
+        "2022-04-01",
+        "2022-03-01",
+        "2022-02-01-preview",
+        "2022-01-01",
+        "2021-12-01-preview",
+        "2021-10-01-preview",
+        "2021-07-01",
+        "2021-02-01-preview"
+      ],
+
+
+        2022-02-01-preview:
+
+            [-] apiVersions Should Be Recent (14 ms)                                                                            
+        Microsoft.DataProtection/ResourceGuards uses a preview version ( 2022-02-01-preview ) and there are more recent versions available. Line: 6, Column: 8
+        Valid Api Versions:                                                                                             
+        2022-05-01                                                                                                      
+        2022-05-01                                                                                                      
+        2022-04-01                                                                                                      
+        2022-03-01                                                                                                      
+        2022-02-01-preview                                                                                              
+        2022-01-01                                                                                                      
+        2021-12-01-preview                                                                                              
+        2021-10-01-preview                                                                                              
+        2021-07-01                                                                                                      
+        2021-02-01-preview  
+        */
+
+
+
+        //asdfg
+        /* "Microsoft.Sql/servers/databases/geoBackupPolicies": [
+    {
+      "aliases": null,
+      "apiProfiles": null,
+      "apiVersions": [
+        "2015-05-01-preview",
+        "2014-04-01-preview",
+        "2014-04-01"
+      ],*/
+
+
+
         [TestMethod]
         public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithSameDateAsStable_Fail()
         {
@@ -1572,7 +1684,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
             */
 
-            CompileAndTestWithFakeDateAndTypes(@"
+        CompileAndTestWithFakeDateAndTypes(@"
     // Pass - old but no more recent stable version
     resource res1 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview' = {
       name: 'res1'

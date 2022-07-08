@@ -60,7 +60,7 @@ namespace Bicep.Core.ApiVersion
             (string? date, string? _) = TryParse(apiVersion);
             if (date is null)
             {
-                throw new Exception("asdfg");
+                throw new Exception($"Invalid API version '{apiVersion}'");
             }
             return DateTime.ParseExact(date, "yyyy-mm-dd", CultureInfo.InvariantCulture);
         }
