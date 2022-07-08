@@ -128,8 +128,37 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 allowedVersions.Should().BeEquivalentTo(expectedApiVersions);
             }
 
+
             [TestMethod]
-            public void GetAcceptableApiVersions_ResourceTypeNotRecognized_ReturnNone()
+            public void GAAPI_CaseInsensitiveResourceType()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.KUSTO/clusters",
+                    @"
+                        Fake.Kusto/clusters@2418-09-07-preview",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2418-09-07-preview",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_CaseInsensitiveApiSuffix()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.KUSTO/clusters",
+                    @"
+                        Fake.Kusto/clusters@2418-09-07-PREVIEW",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2418-09-07-preview",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_ResourceTypeNotRecognized_ReturnNone()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kisto/clusters",
@@ -137,12 +166,240 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2421-01-01",
                     "2422-07-07",
                     new string[]
-                    {            
+                    {
                     });
             }
-         
+
             [TestMethod]
-            public void GetAcceptableApiVersions_2RecentStable_0RecentPreview_PickBothRecentStableVersions()
+            public void GAAPI_NoStable_NoPreview()
+            {
+                //asdfg
+            }
+
+            [TestMethod]
+            public void GAAPI_NoStable_OldPreview_PickOnlyMostRecentPreview()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2413-01-21-preview
+                        Fake.Kusto/clusters@2413-05-15-beta
+                        Fake.Kusto/clusters@2413-09-07-alpha",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2419-09-07-alpha",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_NoStable_OldPreview_PickOnlyMostRecentPreview_MultiplePreviewWithSameDate()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2413-01-21-preview
+                        Fake.Kusto/clusters@2413-05-15-beta
+                        Fake.Kusto/clusters@2413-09-07-alpha
+                        Fake.Kusto/clusters@2413-09-07-beta",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2419-09-07-alpha",
+                        "2419-09-07-alpha",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_NoStable_NewPreview_PickNewPreview()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2419-01-21-preview
+                        Fake.Kusto/clusters@2419-05-15-beta
+                        Fake.Kusto/clusters@2419-09-07-alpha",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2419-09-07-alpha",
+                    });
+            }
+
+            [TestMethod]
+            public void GGAAPI_NoStable_NewPreview_PickNewPreview_MultiplePreviewHaveSameDate()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2419-01-21-preview
+                        Fake.Kusto/clusters@2419-05-15-beta
+                        Fake.Kusto/clusters@2419-09-07-alpha
+                        Fake.Kusto/clusters@2419-01-21-beta
+                        Fake.Kusto/clusters@2419-05-15-privatepreview
+                        Fake.Kusto/clusters@2419-09-07-beta
+                        Fake.Kusto/clusters@2419-09-07-privatepreview",
+
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2419-01-21-preview",
+                        "2419-05-15-beta",
+                        "2419-09-07-alpha",
+                        "2419-01-21-beta",
+                        "2419-05-15-privatepreview",
+                        "2419-09-07-beta",
+                        "2419-09-07-privatepreview",
+                    });
+            }
+
+
+            [TestMethod]
+            public void GGAAPI_NoStable_OldAndNewPreview_PickNewPreview()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2419-05-15-privatepreview
+                        Fake.Kusto/clusters@2413-01-21-preview
+                        Fake.Kusto/clusters@2414-05-15-beta
+                        Fake.Kusto/clusters@2415-09-07-alpha
+                        Fake.Kusto/clusters@2419-01-21-beta
+                        Fake.Kusto/clusters@2419-09-07-beta",
+
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2419-01-21-beta",
+                        "2419-05-15-privatepreview",
+                        "2419-09-07-beta",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_OldStable_NoPreview_PickOnlyMostRecentStable()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2419-01-21
+                        Fake.Kusto/clusters@2419-05-15
+                        Fake.Kusto/clusters@2419-09-07
+                        Fake.Kusto/clusters@2419-11-09
+                        Fake.Kusto/clusters@2420-02-15
+                        Fake.Kusto/clusters@2420-06-14
+                        Fake.Kusto/clusters@2420-09-18",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2420-09-18",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_OldStable_OldPreview()
+            {
+                //asdfg
+
+            }
+
+            //asdfg
+            // OldStable_NewPreview
+
+            //asdfg
+            // OldStable_OldAndNewPreview
+
+
+            [TestMethod]
+            public void GAAPI_NewStable_NoPreview_PickNewStable()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2419-01-21
+                        Fake.Kusto/clusters@2419-05-15
+                        Fake.Kusto/clusters@2419-09-07
+                        Fake.Kusto/clusters@2419-11-09
+                        Fake.Kusto/clusters@2420-02-15
+                        Fake.Kusto/clusters@2420-06-14
+                        Fake.Kusto/clusters@2420-09-18",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2420-09-18",
+                    });
+            }
+
+            //asdfg
+            // NewStable_OldPreview
+
+            //asdfg
+            //NewStable_NewPreview
+
+
+            //asdfg
+            //NewStable_OldAndNewPreview
+
+
+            [TestMethod]
+            public void GAAPI_OldAndNewStable_NoPreview_PickNewStable()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2419-01-21
+                        Fake.Kusto/clusters@2419-05-15
+                        Fake.Kusto/clusters@2419-09-07
+                        Fake.Kusto/clusters@2419-11-09
+                        Fake.Kusto/clusters@2420-02-15
+                        Fake.Kusto/clusters@2420-06-14
+                        Fake.Kusto/clusters@2420-09-18
+                        Fake.Kusto/clusters@2421-01-01
+                        Fake.Kusto/clusters@2425-01-01",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2420-09-18",
+                        "2421-01-01",
+                        "2425-01-01",
+                    });
+            }
+
+
+
+            [TestMethod]
+            public void GAAPI_OldAndNewStable_OldPreview_PickNewStable()
+            {
+                //asdfg
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2417-09-07-privatepreview
+                        Fake.Kusto/clusters@2418-09-07-preview
+                        Fake.Kusto/clusters@2419-01-21
+                        Fake.Kusto/clusters@2419-05-15
+                        Fake.Kusto/clusters@2419-09-07
+                        Fake.Kusto/clusters@2419-11-09
+                        Fake.Kusto/clusters@2420-02-15
+                        Fake.Kusto/clusters@2420-06-14
+                        Fake.Kusto/clusters@2420-09-18",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2420-09-18"
+                    });
+            }
+
+
+            [TestMethod]
+            public void GAAPI_OldAndNewStable2_OldPreview_PickNewStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -165,34 +422,36 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     });
             }
 
-            [TestMethod]
-            public void GetAcceptableApiVersions_CaseInsensitiveResourceType()
-            {
-                TestGetAcceptableApiVersions(
-                    "Fake.KUSTO/clusters",
-                    @"
-                        Fake.Kusto/clusters@2418-09-07-preview",
-                    "2422-07-07",
-                    new string[]
-                    {
-                        "2418-09-07-preview",
-                    });
-            }
+            //asdfg
+            // OldAndNewStable_NewPreview
 
-            [TestMethod]
-            public void GetAcceptableApiVersions_CaseInsensitiveApiSuffix()
-            {
-                TestGetAcceptableApiVersions(
-                    "Fake.KUSTO/clusters",
-                    @"
-                        Fake.Kusto/clusters@2418-09-07-PREVIEW",
-                    "2422-07-07",
-                    new string[]
-                    {
-                        "2418-09-07-preview",
-                    });
-            }
+            //asdfg
+            //OldAndNewStable_OldAndNewPreview
 
+
+            /// <summary>
+            /// ///////////////////////////////////
+            /// </summary>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+           
+           
         }
 
         //asdfg will change with time
