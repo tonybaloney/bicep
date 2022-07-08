@@ -4,9 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.Linq;
 using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.CodeAction;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
@@ -17,14 +17,32 @@ using Bicep.Core.Syntax;
 
 namespace Bicep.Core.Analyzers.Linter.Rules
 {
+    //asdfg prefix -> suffix
+
+    //    //asdfg
+    //      if ($FullResourceTypes -like '*/providers/*') {
+    //        # If we have a provider resources
+    //        $FullResourceTypes = @($FullResourceTypes -split '/')
+    //        if ($av.Name -match "'/{0,}(?<ResourceType>\w+\.\w+)/{0,}'") {
+    //            $FullResourceTypes = @($matches.ResourceType)
+    //        }
+    //        else
+    //{
+    //    Write - Warning "Could not identify provider resource for $($FullResourceTypes -join '/')"
+    //            continue
+    //        }
+    //    }
+
+    //asdfg update
     // Adds linter rule to flag an issue when api version used in resource is not recent
-    // 1. Any GA version is allowed as long as it's not > 2 years old, even if there is a more recent GA version
-    // 2. If there is no GA apiVersion less than 2 years old, then take the latest one available from the cache of GA versions
-    // 3. A preview version(api version with -preview prefix) is valid only if it is latest and there is no later GA version
-    // 4. For non preview versions(e.g. alpha, beta, privatepreview and rc), order of preference is latest GA -> Preview -> Non Preview 
+    // 1. Any GA version is allowed as long as it's less than years old, even if there is a more recent GA version
+    // 2. If there is no GA apiVersion less than 2 years old, then accept only the latest one GA version available
+    // 3. A non-stable version (api version with any -* suffix, such as -preview) is accepted only if it is latest and there is no later GA version
+    // 4. For non preview versions(e.g. alpha, beta, privatepreview and rc), order of preference is latest GA -> Preview -> Non Preview   asdf????
     public sealed class UseRecentApiVersionRule : LinterRuleBase
     {
         public new const string Code = "use-recent-api-version";
+        public const int MaxAllowedAgeInDays = 365 * 2;
 
         private DateTime today = DateTime.Today;
 
@@ -44,32 +62,34 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             string? debugToday = this.GetConfigurationValue<string?>("debug-today", null);
             if (debugToday is not null)
             {
-                this.today = DateTime.ParseExact(debugToday, "yyyy-mm-dd", CultureInfo.InvariantCulture);
+                this.today = ApiVersionHelper.ParseDate(debugToday);
             }
         }
 
         override public IEnumerable<IDiagnostic> AnalyzeInternal(SemanticModel model)
         {
-            var spanFixes = new Dictionary<TextSpan, CodeFix>();
-            var visitor = new Visitor(spanFixes, model, today);
+            var visitor = new Visitor(model, today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
             visitor.Visit(model.SourceFile.ProgramSyntax);
 
-            return spanFixes.Select(kvp => CreateFixableDiagnosticForSpan(kvp.Key, kvp.Value));
+            return visitor.Fixes.Select(fix => CreateFixableDiagnosticForSpan(fix.Span, fix.Fix));
         }
 
         public sealed class Visitor : SyntaxVisitor
         {
+            internal readonly List<(TextSpan Span, CodeFix Fix)> Fixes = new();
+
             private readonly IApiVersionProvider apiVersionProvider;
             private readonly SemanticModel model;
-            private readonly Dictionary<TextSpan, CodeFix> spanFixes;
             private readonly DateTime today;
+            private readonly int maxAllowedAgeInDays;
 
-            public Visitor(Dictionary<TextSpan, CodeFix> spanFixes, SemanticModel model, DateTime today)
+
+            public Visitor(SemanticModel model, DateTime today, int maxAllowedAgeInDays)
             {
                 this.apiVersionProvider = model.ApiVersionProvider ?? new ApiVersionProvider();
-                this.spanFixes = spanFixes;
                 this.model = model;
                 this.today = today;
+                this.maxAllowedAgeInDays = maxAllowedAgeInDays;
             }
 
             public override void VisitResourceDeclarationSyntax(ResourceDeclarationSyntax resourceDeclarationSyntax)
@@ -80,32 +100,117 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     resourceTypeReference.ApiVersion is string apiVersion &&
                     GetReplacementSpan(resourceSymbol, apiVersion) is TextSpan replacementSpan)
                 {
-                    string fullyQualifiedType = resourceTypeReference.FormatType(); //asdfg
-                    (string? currentApiVersion, string? prefix) = apiVersionProvider.GetApiVersionAndPrefix(apiVersion);
+                    string fullyQualifiedResourceType = resourceTypeReference.FormatType();
+                    var fix = CreatePossibleDiagnostic(replacementSpan, fullyQualifiedResourceType, apiVersion);
 
-                    string? recentGAVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, ApiVersionPrefixConstants.GA);
-
-                    if (string.IsNullOrEmpty(prefix))
+                    if (fix is not null)
                     {
-                        AddCodeFixIfGAVersionIsNotLatest(replacementSpan,
-                                                         recentGAVersion,
-                                                         currentApiVersion);
-                    }
-                    else
-                    {
-                        string? recentNonPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, prefix); //asdfg what are the rules here?
-                        string? recentPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedType, ApiVersionPrefixConstants.Preview);
-
-                        AddCodeFixIfNonGAVersionIsNotLatest(replacementSpan,
-                                                            recentGAVersion,
-                                                            recentPreviewVersion,
-                                                            recentNonPreviewVersion,
-                                                            prefix,
-                                                            currentApiVersion);
+                        Fixes.Add(fix.Value);
                     }
                 }
 
                 base.VisitResourceDeclarationSyntax(resourceDeclarationSyntax);
+            }
+
+            public (TextSpan span, CodeFix fix)? CreatePossibleDiagnostic(TextSpan replacementSpan/*asdfg*/, string fullyQualifiedResourceType, string actualApiVersion)
+            {
+                (string? currentApiDate, string? actualApiSuffix) = ApiVersionHelper.TryParse(actualApiVersion);
+                if (currentApiDate is null)
+                {//asdfg testpoint
+                    // The API version is not valid. Bicep will show an error, so we don't want to add anything else
+                    return null;
+                }
+
+                var acceptableVersions = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, fullyQualifiedResourceType);
+                if (!acceptableVersions.Any())
+                {
+                    // Bicep will show a warning, so we don't want to add anything else
+                }
+
+                if (acceptableVersions.Contains(actualApiVersion)) //asdfg case insensitive
+                {
+                    // Nothing to do
+                }
+
+
+                //asdfg
+                //string? recentGAVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedResourceType, ApiVersionSuffixes.GA);
+
+                ////asdfg
+                //if (string.IsNullOrEmpty(actualApiSuffix))
+                //{
+                //    return CreateCodeFixIfGAVersionIsNotLatest(span,
+                //                                    recentGAVersion,
+                //                                    currentApiDate);
+                //}
+                //else
+                //{
+                //    string? recentNonPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedResourceType, actualApiSuffix); //asdfg what are the rules here?
+                //    string? recentPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedResourceType, ApiVersionSuffixes.Preview);
+
+                //    return CreateCodeFixIfNonGAVersionIsNotLatest(span,
+                //                                        recentGAVersion,
+                //                                        recentPreviewVersion,
+                //                                        recentNonPreviewVersion,
+                //                                        actualApiSuffix,
+                //                                        currentApiDate);
+                //}
+
+                return null;
+            }
+
+            public static string[] GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, string fullyQualifiedResourceType)
+            {
+                var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(fullyQualifiedResourceType);
+                if (!allVersionsSorted.Any())
+                { //asdfg testpoint
+                    // The resource type is not recognized.
+                    return Array.Empty<string>();
+                }
+
+                var lastAcceptableRecentDate = ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
+
+                var stableVersionsSorted = allVersionsSorted.Where(v => !ApiVersionHelper.IsPreviewVersion(v)).ToArray();
+                var previewVersionsSorted = allVersionsSorted.Where(v => ApiVersionHelper.IsPreviewVersion(v)).ToArray();
+
+                var recentStableVersionsSorted = FilterRecentVersions(stableVersionsSorted, lastAcceptableRecentDate).ToArray();
+                var recentPreviewVersionsSorted = FilterRecentVersions(previewVersionsSorted, lastAcceptableRecentDate).ToArray();
+
+                // Start with all recent stable versions
+                List<string> acceptableVersions = recentStableVersionsSorted.ToList();
+
+                // Add any recent preview versions
+                acceptableVersions.AddRange(recentPreviewVersionsSorted);
+
+                // If there are no recent stable versions...
+                if (!recentStableVersionsSorted.Any())
+                {
+                    // Allow the most recent, stable version even though it's old
+                    if (stableVersionsSorted.Any())
+                    {
+                        acceptableVersions.Add(stableVersionsSorted.Last());
+                    }
+
+                    // If there are also no recent preview resources, allow only those with the most recent date
+                    // that is newer than the stable one (only allow a single date - in the weird case where there are
+                    // multiple with that same date, take them all)
+                    if (!recentPreviewVersionsSorted.Any())
+                    {
+                        var mostRecentPreviewDate = previewVersionsSorted.Max(v => ApiVersionHelper.TryParse(v).date);
+                        if (mostRecentPreviewDate is not null)
+                        {
+                            var mostRecentPreviewVersions = previewVersionsSorted.Where(v => ApiVersionHelper.CompareApiVersionDates(v, mostRecentPreviewDate) == 0);
+                            acceptableVersions.AddRange(mostRecentPreviewVersions);
+                        }
+                    }
+                }
+
+                return acceptableVersions.ToArray();
+            }
+
+            private static IEnumerable<string> FilterRecentVersions(string[] apiVersions, string lastAcceptableRecentDate)
+            {
+                return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, lastAcceptableRecentDate) >= 0).ToArray(); //asdfg test
             }
 
             private TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
@@ -123,33 +228,35 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
             // 1. Any GA version is allowed as long as it's not > 2 years old, even if there is a more recent GA version
             // 2. If there is no GA apiVersion less than 2 years old, then take the latest one available from the cache of GA versions
-            public void AddCodeFixIfGAVersionIsNotLatest(TextSpan span,
+            public (TextSpan Span, CodeFix Fix)? CreateCodeFixIfGAVersionIsNotLatest(TextSpan span,
                                                          string? recentGAVersion,
                                                          string? currentApiVersion)
             {
                 if (currentApiVersion is null || recentGAVersion is null)
                 {
-                    return;
+                    return null;
                 }
 
                 DateTime currentApiVersionDate = DateTime.Parse(currentApiVersion);
 
                 if (today.Year - currentApiVersionDate.Year <= 2) //asdfg
                 {
-                    return;
+                    return null;
                 }
 
                 DateTime recentGAVersionDate = DateTime.Parse(recentGAVersion);
 
                 if (DateTime.Compare(recentGAVersionDate, currentApiVersionDate) > 0)
                 {
-                    AddCodeFix(span, recentGAVersion);
+                    return CreateCodeFix(span, recentGAVersion);
                 }
+
+                return null;
             }
 
             // A preview version is valid only if it is latest and there is no later GA version
             // For non preview versions like alpha, beta, privatepreview and rc, order of preference is latest GA -> Preview -> Non Preview 
-            public void AddCodeFixIfNonGAVersionIsNotLatest(TextSpan span,
+            public (TextSpan Span, CodeFix Fix)? CreateCodeFixIfNonGAVersionIsNotLatest(TextSpan span,
                                                             string? recentGAVersion,
                                                             string? recentPreviewVersion,
                                                             string? recentNonPreviewVersion,
@@ -158,14 +265,14 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             {
                 if (currentVersion is null)
                 {
-                    return;
+                    return null;
                 }
 
                 DateTime currentVersionDate = DateTime.Parse(currentVersion);
 
-                Dictionary<string, DateTime> prefixToRecentApiVersionMap = new Dictionary<string, DateTime>();
+                Dictionary<string, DateTime> prefixToRecentApiVersionMap = new Dictionary<string, DateTime>(); //asdfg misnamed
 
-                if (prefix.Equals(ApiVersionPrefixConstants.Preview))
+                if (prefix.Equals(ApiVersionSuffixes.Preview))
                 {
                     if (recentGAVersion is not null)
                     {
@@ -191,7 +298,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
                     if (recentPreviewVersion is not null)
                     {
-                        prefixToRecentApiVersionMap.Add(recentPreviewVersion + ApiVersionPrefixConstants.Preview, DateTime.Parse(recentPreviewVersion));
+                        prefixToRecentApiVersionMap.Add(recentPreviewVersion + ApiVersionSuffixes.Preview, DateTime.Parse(recentPreviewVersion));
                     }
                 }
 
@@ -207,29 +314,20 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                         Trace.WriteLine("Date1: " + kvp.Value);
                         Trace.WriteLine("Date2: " + currentVersionDate);
 
-                        AddCodeFix(span, kvp.Key);
+                        return CreateCodeFix(span, kvp.Key);
                     }
                 }
+
+                return null;
             }
 
-            private void AddCodeFix(TextSpan span, string apiVersion)
+            private (TextSpan Span, CodeFix Fix) CreateCodeFix(TextSpan span, string apiVersion)
             {
                 var codeReplacement = new CodeReplacement(span, apiVersion);
                 string description = string.Format(CoreResources.UseRecentApiVersionRuleMessageFormat, apiVersion);
                 var fix = new CodeFix(description, true, CodeFixKind.QuickFix, codeReplacement);
-                spanFixes[span] = fix;
-            }
 
-            public DateTime? GetApiVersionDate(string apiVersion)
-            {
-                (string? version, string? _) = apiVersionProvider.GetApiVersionAndPrefix(apiVersion);
-
-                if (version is not null)
-                {
-                    return DateTime.Parse(version);
-                }
-
-                return null;
+                return (span, fix);
             }
         }
     }

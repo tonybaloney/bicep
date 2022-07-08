@@ -4,13 +4,13 @@ using System;
 using System.Collections.Immutable;
 using System.Linq;
 using Bicep.Core.Analyzers.Interfaces;
-using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Features;
 using Bicep.Core.Extensions;
 using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.Workspaces;
+using Bicep.Core.ApiVersions;
 
 namespace Bicep.Core.Semantics
 {

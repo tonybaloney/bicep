@@ -1,9 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Bicep.Core.ApiVersion
+namespace Bicep.Core.ApiVersions
 {
-    public static class ApiVersionPrefixConstants
+    public static class ApiVersionSuffixes //asdfg needed?
     {
         public const string Alpha = "-alpha";
         public const string Beta = "-beta";

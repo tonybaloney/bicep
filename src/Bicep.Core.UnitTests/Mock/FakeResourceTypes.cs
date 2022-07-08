@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Bicep.Core.Resources;
+using System.Linq;
 
 namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 {
@@ -11,7 +12,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     {
         public static IEnumerable<ResourceTypeReference> GetFakeTypes(string fakeTypesAsText)
         {
-            var lines = fakeTypesAsText.ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.RemoveEmptyEntries);
+            var lines = fakeTypesAsText
+                .ReplaceLineEndings("\n")
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim());
             foreach (string line in lines)
             {
                 var resourcType = ResourceTypeReference.Parse(line);

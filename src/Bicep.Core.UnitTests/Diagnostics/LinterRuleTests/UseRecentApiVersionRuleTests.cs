@@ -2,11 +2,10 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using Bicep.Core.Analyzers.Linter;
 using Bicep.Core.Analyzers.Linter.Rules;
 using Bicep.Core.ApiVersion;
-using Bicep.Core.CodeAction;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Json;
 using Bicep.Core.Parsing;
@@ -64,7 +63,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             // Test with the linter thinking today's date is FAKE_TODAY_DATE and also fake resource types from FakeResourceTypes
             // Note: The compiler does not know about these fake types, only the linter.
 
-            var apiProvider = FakeResourceTypes.GetFakeTypes(string.Join('\n', resourceTypes));
+            var apiProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(string.Join('\n', resourceTypes)));
 
             AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
                 bicep,
@@ -72,16 +71,16 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 OnCompileErrors.IncludeErrors,
                 IncludePosition.LineNumber,
                 configuration: CreateConfigurationWithFakeToday(fakeToday),
-                apiVersionProvider: FakeApiVersionProviderResourceScope);
+                apiVersionProvider: apiProvider);
         }
 
         // Uses fake resource types from FakeResourceTypes
-        private IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
+        private readonly IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
 
         // Uses fake today's date
-        private RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
+        private static RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
 
-        private SemanticModel SemanticModel => new Compilation(
+        public static SemanticModel SemanticModel => new Compilation(
            BicepTestConstants.Features,
            TestTypeHelper.CreateEmptyProvider(),
            SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
@@ -110,9 +109,90 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 null);
         }
 
-        private string ConvertDateTimeToString(DateTime dateTime)
+        [TestClass]
+        public class GetAcceptableApiVersions
         {
-            return dateTime.Year + "-" + dateTime.Month + "-" + dateTime.Day;
+            //private void TestGetAcceptableApiVersions(string[] resourceTypes, string today, string[] expectedApiVersions, int maxAllowedAgeInDays = UseRecentApiVersionRule.MaxAllowedAgeInDays)
+            //{
+            //    TestGetAcceptableApiVersions(
+            //        string.Join('\n', resourceTypes),
+            //        today,
+            //        expectedApiVersions,
+            //        maxAllowedAgeInDays);
+            //}
+
+            private void TestGetAcceptableApiVersions(string fullyQualifiedResourceType, string resourceTypes, string today, string[] expectedApiVersions, int maxAllowedAgeInDays = UseRecentApiVersionRule.MaxAllowedAgeInDays)
+            {
+                var apiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(resourceTypes));
+                var allowedVersions = Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, fullyQualifiedResourceType);
+                allowedVersions.Should().BeEquivalentTo(expectedApiVersions);
+            }
+
+            [TestMethod]
+            public void GetAcceptableApiVersions_ResourceTypeNotRecognized_ReturnNone()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kisto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2421-01-01",
+                    "2422-07-07",
+                    new string[]
+                    {            
+                    });
+            }
+         
+            [TestMethod]
+            public void GetAcceptableApiVersions_2RecentStable_0RecentPreview_PickBothRecentStableVersions()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2417-09-07-privatepreview
+                        Fake.Kusto/clusters@2418-09-07-preview
+                        Fake.Kusto/clusters@2419-01-21
+                        Fake.Kusto/clusters@2419-05-15
+                        Fake.Kusto/clusters@2419-09-07
+                        Fake.Kusto/clusters@2419-11-09
+                        Fake.Kusto/clusters@2420-02-15
+                        Fake.Kusto/clusters@2420-06-14
+                        Fake.Kusto/clusters@2420-09-18
+                        Fake.Kusto/clusters@2421-01-01",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2421-01-01",
+                        "2420-09-18"
+                    });
+            }
+
+            [TestMethod]
+            public void GetAcceptableApiVersions_CaseInsensitiveResourceType()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.KUSTO/clusters",
+                    @"
+                        Fake.Kusto/clusters@2418-09-07-preview",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2418-09-07-preview",
+                    });
+            }
+
+            [TestMethod]
+            public void GetAcceptableApiVersions_CaseInsensitiveApiSuffix()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.KUSTO/clusters",
+                    @"
+                        Fake.Kusto/clusters@2418-09-07-PREVIEW",
+                    "2422-07-07",
+                    new string[]
+                    {
+                        "2418-09-07-preview",
+                    });
+            }
+
         }
 
         //asdfg will change with time
@@ -173,401 +253,332 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void AddCodeFixIfGAVersionIsNotLatest_WithCurrentVersionLessThanTwoYearsOld_ShouldNotAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-1);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddMonths(-5);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
                                                      currentVersion);
 
-            spanFixes.Should().BeEmpty();
+            fix.Should().BeNull();
         }
 
         [TestMethod]
         public void AddCodeFixIfGAVersionIsNotLatest_WithCurrentVersionMoreThanTwoYearsOldAndRecentApiVersionIsAvailable_ShouldAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddMonths(-5);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
+            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
                                                      currentVersion);
-
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
         }
 
         [TestMethod]
         public void AddCodeFixIfGAVersionIsNotLatest_WithCurrentAndRecentApiVersionsMoreThanTwoYearsOld_ShouldAddDiagnosticsToUseRecentApiVersion()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-4);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-3);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
                                                      currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
         }
 
         [TestMethod]
         public void AddCodeFixIfGAVersionIsNotLatest_WhenCurrentAndRecentApiVersionsAreSameAndMoreThanTwoYearsOld_ShouldNotAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = currentVersionDate;
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
                                                      recentGAVersion,
                                                      currentVersion);
 
-            spanFixes.Should().BeEmpty();
+            fix.Should().BeNull();
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenCurrentPreviewVersionIsLatest_ShouldNotAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-1);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-3);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
             DateTime recentPreviewVersionDate = currentVersionDate;
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.Preview,
+                                                        ApiVersionSuffixes.Preview,
                                                         currentVersion);
 
-            spanFixes.Should().BeEmpty();
+            fix.Should().BeNull();
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenRecentPreviewVersionIsAvailable_ShouldAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-5);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-3);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
             DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.Preview,
+                                                        ApiVersionSuffixes.Preview,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionSuffixes.Preview);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-5);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-2);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
             DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-3);
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.Preview,
+                                                        ApiVersionSuffixes.Preview,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenRecentGAVersionIsSameAsPreviewVersion_ShouldAddDiagnosticsUsingGAVersion()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-2);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
             string recentPreviewVersion = recentGAVersion;
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.Preview,
+                                                        ApiVersionSuffixes.Preview,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsNotRecent_ShouldAddDiagnosticsUsingRecentPreviewVersion()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.Preview,
+                                                        ApiVersionSuffixes.Preview,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionSuffixes.Preview);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsRecent_ShouldNotAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-2);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentPreviewVersionDate = currentVersionDate;
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.Preview,
+                                                        ApiVersionSuffixes.Preview,
                                                         currentVersion);
 
-            spanFixes.Should().BeEmpty();
+            fix.Should().BeNull();
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithNonPreviewVersion_WhenGAVersionisNull_AndPreviewVersionIsRecent_ShouldAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-1);
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
             DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentNonPreviewApiVersion = ConvertDateTimeToString(recentNonPreviewVersionDate);
+            string recentNonPreviewApiVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
 
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
                                                         recentPreviewVersion,
                                                         null,
-                                                        ApiVersionPrefixConstants.RC,
+                                                        ApiVersionSuffixes.RC,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionPrefixConstants.Preview);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionSuffixes.Preview);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithNonPreviewVersion_WhenGAVersionisRecent_ShouldAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-1);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
             DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
             DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-3);
-            string recentNonPreviewVersion = ConvertDateTimeToString(recentNonPreviewVersionDate);
+            string recentNonPreviewVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
                                                         recentPreviewVersion,
                                                         recentNonPreviewVersion,
-                                                        ApiVersionPrefixConstants.Alpha,
+                                                        ApiVersionSuffixes.Alpha,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentGAVersion);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithNonPreviewVersion_WhenPreviewAndGAVersionsAreNull_AndNonPreviewVersionIsNotRecent_ShouldAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentNonPreviewVersion = ConvertDateTimeToString(recentNonPreviewVersionDate);
+            string recentNonPreviewVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         null,
                                                         null,
                                                         recentNonPreviewVersion,
-                                                        ApiVersionPrefixConstants.Alpha,
+                                                        ApiVersionSuffixes.Alpha,
                                                         currentVersion);
 
-            spanFixes.Should().SatisfyRespectively(
-                x =>
-                {
-                    x.Value.Description.Should().Be("Use recent API version " + recentNonPreviewVersion + ApiVersionPrefixConstants.Alpha);
-                });
+            fix.Should().NotBeNull();
+            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentNonPreviewVersion + ApiVersionSuffixes.Alpha);
         }
 
         [TestMethod]
         public void AddCodeFixIfNonGAVersionIsNotLatest_WithRecentNonPreviewVersion_ShouldNotAddDiagnostics()
         {
             DateTime currentVersionDate = DateTime.Today.AddMonths(-3);
-            string currentVersion = ConvertDateTimeToString(currentVersionDate);
+            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
             DateTime recentGAVersionDate = DateTime.Today.AddYears(-1);
-            string recentGAVersion = ConvertDateTimeToString(recentGAVersionDate);
+            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
             DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ConvertDateTimeToString(recentPreviewVersionDate);
+            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
             DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-3);
-            string recentNonPreviewVersion = ConvertDateTimeToString(recentNonPreviewVersionDate);
+            string recentNonPreviewVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
 
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
-
-            visitor.AddCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
+            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
+            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
                                                         recentGAVersion,
                                                         recentPreviewVersion,
                                                         recentNonPreviewVersion,
-                                                        ApiVersionPrefixConstants.Alpha,
+                                                        ApiVersionSuffixes.Alpha,
                                                         currentVersion);
 
-            spanFixes.Should().BeEmpty();
+            fix.Should().BeNull();
         }
 
-        [DataRow("invalid-text")]
-        [DataRow("")]
-        [DataRow("   ")]
-        [TestMethod]
-        public void GetApiVersionDate_WithInvalidVersion(string apiVersion)
-        {
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
+        //asdfg
+        //[DataRow("invalid-text")]
+        //[DataRow("")]
+        //[DataRow("   ")]
+        //[TestMethod]
+        //public void GetApiVersionDate_WithInvalidVersion(string apiVersion)
+        //{
+        //    Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
 
-            DateTime? actual = visitor.GetApiVersionDate(apiVersion);
+        //    DateTime? actual = visitor.ApiVersionToDate(apiVersion);
 
-            actual.Should().BeNull();
-        }
+        //    actual.Should().BeNull();
+        //}
 
-        [DataRow("2015-04-01-rc", "2015-04-01")]
-        [DataRow("2016-04-01", "2016-04-01")]
-        [DataRow("2016-04-01-privatepreview", "2016-04-01")]
-        [TestMethod]
-        public void GetApiVersionDate_WithValidVersion(string apiVersion, string expectedVersion)
-        {
-            Dictionary<TextSpan, CodeFix> spanFixes = new();
-            Visitor visitor = new Visitor(spanFixes, SemanticModel, DateTime.Today);
+        //[DataRow("2015-04-01-rc", "2015-04-01")]
+        //[DataRow("2016-04-01", "2016-04-01")]
+        //[DataRow("2016-04-01-privatepreview", "2016-04-01")]
+        //[TestMethod]
+        //public void GetApiVersionDate_WithValidVersion(string apiVersion, string expectedVersion)
+        //{
+        //    Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
 
-            DateTime? actual = visitor.GetApiVersionDate(apiVersion);
+        //    DateTime? actual = visitor.ApiVersionToDate(apiVersion);
 
-            actual.Should().Be(DateTime.Parse(expectedVersion));
-        }
+        //    actual.Should().Be(DateTime.Parse(expectedVersion));
+        //}
 
         [TestMethod]
         public void ArmTtk_ApiVersionIsNotAnExpression_Error()
@@ -1112,6 +1123,132 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 new string[] {
                 "asdf??"
                 },
+                "2022-07-07",
+                "asdf??");
+        }
+
+        [TestMethod]
+        public void LotsOfNonStableVersions()
+        {
+            //asdfg?
+            /*
+             {
+            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+            "contentVersion": "1.0.0.0",
+            "parameters": {},
+            "functions": [],
+            "resources": [
+            {
+            // pass
+             "name": "res1",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2020-05-26-privatepreview"
+            },
+            {
+            // apiVersions Should Be Recent
+            // Api versions must be the latest or under 2 years old (730 days) - API version 2020-05-26-preview of Microsoft.VSOnline/registeredSubscriptions is 772 days old Line: 14, Column: 14
+            // Valid Api Versions:                                                                                             
+            //    2020-05-26-beta                                                                                                 
+            //    2020-05-26-privatepreview   
+             "name": "res2",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2020-05-26-preview"
+            },
+            {
+            // pass
+             "name": "res3",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2020-05-26-beta"
+            },
+            {
+            // pass
+             "name": "res4",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2020-05-26-alpha"
+            },
+            {
+            // pass
+             "name": "res5",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2019-07-01-privatepreview"
+            },
+            {
+            // pass
+             "name": "res6",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2019-07-01-preview"
+            },
+            {
+            // pass
+             "name": "res7",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2019-07-01-beta"
+            },
+            {
+            // pass
+             "name": "res8",
+            "type": "Microsoft.VSOnline/registeredSubscriptions",
+            "apiVersion": "2019-07-01-alpha"
+            }
+            ],
+            "outputs": {}
+            }
+            */
+
+            CompileAndTestWithFakeDateAndTypes(@"
+    // Pass - old but no more recent stable version
+    resource res1 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview' = {
+      name: 'res1'
+    }
+
+    // asdfg?
+    // Pass - old but no more recent stable version
+    resource res2 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview' = {
+      name: 'res2'
+    }
+
+    // asdfg?
+    // Pass - old but no more recent stable version
+    resource res3 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta' = {
+      name: 'res3'
+    }
+
+    // asdfg?
+    // Pass - old but no more recent stable version 
+    resource res4 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-alpha' = {
+      name: 'res4'
+    }
+
+    // Fail
+    resource res5 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-privatepreview' = {
+      name: 'res5'
+    }
+
+    // Fail
+    resource res6 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview' = {
+      name: 'res6'
+    }
+
+    // Fail
+    resource res7 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta' = {
+      name: 'res7'
+    }
+
+    // Fail
+    resource res8 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha' = {
+      name: 'res8'
+    }",
+                new string[] {
+        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview",
+        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview",
+        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta",
+        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-alpha",
+        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-privatepreview",
+        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview",
+        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta",
+        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha"
+                },
+                "2022-07-07",
                 "asdf??");
         }
     }
