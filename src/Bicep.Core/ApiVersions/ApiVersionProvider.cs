@@ -63,8 +63,8 @@ namespace Bicep.Core.ApiVersions
             }
 
             // Sort the lists of api versions
-            stableVersions = stableVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
-            previewVersions = previewVersions.ToDictionary(x => x.Key, x => x.Value.OrderByDescending(y => y).ToList(), Comparer);
+            stableVersions = stableVersions.ToDictionary(x => x.Key, x => x.Value.OrderBy (y => y).ToList(), Comparer);
+            previewVersions = previewVersions.ToDictionary(x => x.Key, x => x.Value.OrderBy(y => y).ToList(), Comparer);
         }
 
         private void UpdateCache(Dictionary<string, List<string>> cache, string? apiVersion, string fullyQualifiedType)
