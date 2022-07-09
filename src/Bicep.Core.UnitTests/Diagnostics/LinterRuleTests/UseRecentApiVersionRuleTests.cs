@@ -423,46 +423,127 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     });
             }
 
+            //asdfg should this be a separate rule?
             [TestMethod]
-            public void GAAPI_NewStable_NewPreview_PickAll()
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_NoPreviewAreNewer()
             {
                 TestGetAcceptableApiVersions(
-                    "Fake.Kusto/clusters",
-                    @"
+                   "Fake.Kusto/clusters",
+                   @"
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-07-15-alpha
                         Fake.Kusto/clusters@2419-07-16-beta
                         Fake.Kusto/clusters@2420-09-18
                     ",
-                    "2421-07-07",
-                    new string[]
-                    {
+                   "2421-07-07",
+                   new string[]
+                   {
                         "2419-07-21",
-                        "2419-07-15-alpha",
-                        "2419-07-16-beta",
                         "2420-09-18",
+                   });
+            }
+
+            [TestMethod]
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_OnePreviewIsOlder() 
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                        @"
+                        Fake.Kusto/clusters@2419-07-21
+                        Fake.Kusto/clusters@2419-07-15-alpha
+                        Fake.Kusto/clusters@2420-09-18
+                        Fake.Kusto/clusters@2421-07-16-beta
+                    ",
+                        "2421-07-07",
+                        new string[]
+                        {
+                        "2419-07-21",
+                        "2420-09-18",
+                        "2421-07-16-beta",
                     });
             }
 
             [TestMethod]
-            public void GAAPI_NewStable_OldAndNewPreview_PickNewStableAndNewPreview()
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer() //asdfg should this be a separate rule?
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
                     @"
-                        Fake.Kusto/clusters@2413-01-21-preview
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-07-15-alpha
-                        Fake.Kusto/clusters@2419-07-16-beta
                         Fake.Kusto/clusters@2420-09-18
+                        Fake.Kusto/clusters@2421-07-16-beta
+                        Fake.Kusto/clusters@2421-07-17-preview
                     ",
                     "2421-07-07",
                     new string[]
                     {
                         "2419-07-21",
-                        "2419-07-15-alpha",
-                        "2419-07-16-beta",
                         "2420-09-18",
+                        "2421-07-16-beta",
+                        "2421-07-17-preview",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer_AllAreOld()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2415-07-21
+                        Fake.Kusto/clusters@2415-07-15-alpha
+                        Fake.Kusto/clusters@2416-09-18
+                        Fake.Kusto/clusters@2417-07-16-beta
+                        Fake.Kusto/clusters@2417-07-17-preview
+                    ",
+                    "2421-07-07",
+                    new string[]
+                    {
+                        "2416-09-18",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer_AllStableAreOld()
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                        Fake.Kusto/clusters@2415-07-21
+                        Fake.Kusto/clusters@2415-07-15-alpha
+                        Fake.Kusto/clusters@2416-09-18
+                        Fake.Kusto/clusters@2421-07-16-beta
+                        Fake.Kusto/clusters@2421-07-17-preview
+                    ",
+                    "2421-07-07",
+                    new string[]
+                    {
+                        "2416-09-18",
+                        "2421-07-16-beta",
+                        "2421-07-17-preview",
+                    });
+            }
+
+            [TestMethod]
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable() //asdfg should this be a separate rule?
+            {
+                TestGetAcceptableApiVersions(
+                    "Fake.Kusto/clusters",
+                    @"
+                    Fake.Kusto/clusters@2413-01-21-preview
+                    Fake.Kusto/clusters@2419-07-21
+                    Fake.Kusto/clusters@2419-07-15-alpha
+                    Fake.Kusto/clusters@2419-07-16-beta
+                    Fake.Kusto/clusters@2420-09-18
+                ",
+                    "2421-07-07",
+                    new string[]
+                    {
+                    "2419-07-21",
+                    "2419-07-15-alpha",
+                    "2419-07-16-beta",
+                    "2420-09-18",
                     });
             }
 
@@ -492,7 +573,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             [TestMethod]
             public void GAAPI_OldAndNewStable_OldPreview_PickNewStable()
-            { 
+            {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
                     @"
@@ -1684,7 +1765,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
             */
 
-        CompileAndTestWithFakeDateAndTypes(@"
+            CompileAndTestWithFakeDateAndTypes(@"
     // Pass - old but no more recent stable version
     resource res1 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview' = {
       name: 'res1'
@@ -1727,7 +1808,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     resource res8 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha' = {
       name: 'res8'
     }",
-                new string[] {
+                    new string[] {
         "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview",
         "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview",
         "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta",
@@ -1736,9 +1817,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview",
         "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta",
         "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha"
-                },
-                "2022-07-07",
-                "asdf??");
+                    },
+                    "2022-07-07",
+                    "asdf??");
         }
     }
 }

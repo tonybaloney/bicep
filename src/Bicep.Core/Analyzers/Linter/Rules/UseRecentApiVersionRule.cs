@@ -200,8 +200,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     // multiple preview versions with that same date, take all those with that date).
                     if (!recentPreviewVersionsSorted.Any())
                     {
-                        // We're safe to use Max on the apiVersion date strings since they're in the form yyyy-mm-dd, will give most recently since they're sorted ascending
-                        var mostRecentPreviewDate = previewVersionsSorted.Max(v => ApiVersionHelper.TryParse(v).date);
+                        var mostRecentPreviewDate = GetNewestDateInApiVersions(previewVersionsSorted);
                         if (mostRecentPreviewDate is not null)
                         {
                             var mostRecentPreviewIsNewerThanMostRecentStable = mostRecentStableVersion is null
@@ -339,6 +338,13 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 var fix = new CodeFix(description, true, CodeFixKind.QuickFix, codeReplacement);
 
                 return (span, fix);
+            }
+
+            // Returns just the date string, not an entire apiVersion
+            private static string? GetNewestDateInApiVersions(string[] apiVersions) //asdfg test
+            {
+                // We're safe to use Max on the apiVersion date strings since they're in the form yyyy-mm-dd, will give most recently since they're sorted ascending
+                return apiVersions.Max(v => ApiVersionHelper.TryParse(v).date);
             }
         }
     }
