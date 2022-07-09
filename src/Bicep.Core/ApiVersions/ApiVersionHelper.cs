@@ -16,7 +16,7 @@ namespace Bicep.Core.ApiVersion
         //asdfg  test case insensitive
         private static readonly Regex VersionPattern = new Regex(@"^((?<version>(\d{4}-\d{2}-\d{2}))(?<suffix>-(preview|alpha|beta|rc|privatepreview))?$)", RegexOptions.Compiled | RegexOptions.ExplicitCapture | RegexOptions.IgnoreCase);
 
-        public static (string? date, string? suffix) TryParse(string apiVersion)
+        public static (string? date, string? suffix) TryParse(string apiVersion) //asdfg test
         {
             MatchCollection matches = VersionPattern.Matches(apiVersion);
 
@@ -34,18 +34,19 @@ namespace Bicep.Core.ApiVersion
             return (null, null);
         }
 
-        public static string Format(DateTime date, string? suffix = null)
+        public static string Format(DateTime date, string? suffix = null) //asdfg test
         {
             var result = string.Format(CultureInfo.InvariantCulture, "{0:yyyy-mm-dd}", date);
             return string.IsNullOrEmpty(suffix) ? result : result + suffix;
         }
 
         // Assumes a and b are valid api-version strings
+        // Compares just the date in an API version
+        // Positive means a > b
         public static int CompareApiVersionDates(string a, string b)
         {
             // Since apiVersions are in the form yyyy-mm-dd{-*}, we can do a simple string comparison against the
             // date portion.
-
             return a.Substring(0, ApiVersionDateLength).CompareTo(b.Substring(0, ApiVersionDateLength));
         }
 

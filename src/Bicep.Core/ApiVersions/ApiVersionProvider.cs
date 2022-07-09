@@ -63,7 +63,7 @@ namespace Bicep.Core.ApiVersions
             }
 
             // Sort the lists of api versions
-            stableVersions = stableVersions.ToDictionary(x => x.Key, x => x.Value.OrderBy (y => y).ToList(), Comparer);
+            stableVersions = stableVersions.ToDictionary(x => x.Key, x => x.Value.OrderBy(y => y).ToList(), Comparer);
             previewVersions = previewVersions.ToDictionary(x => x.Key, x => x.Value.OrderBy(y => y).ToList(), Comparer);
         }
 
@@ -84,7 +84,7 @@ namespace Bicep.Core.ApiVersions
         }
 
         //asdfg
-        public string[] GetSortedValidApiVersions(string fullyQualifiedResourceType)
+        public IEnumerable<string> GetSortedValidApiVersions(string fullyQualifiedResourceType)
         {
             var allVersions = new List<string>();
 
@@ -97,6 +97,7 @@ namespace Bicep.Core.ApiVersions
                 allVersions.AddRange(previews);
             }
 
+        //asdfg    allVersions.Sort();
             return allVersions.ToArray();
         }
 

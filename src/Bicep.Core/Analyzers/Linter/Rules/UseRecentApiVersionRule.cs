@@ -164,63 +164,107 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             {
                 var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(fullyQualifiedResourceType);
                 if (!allVersionsSorted.Any())
-                { //asdfg testpoint
+                {
                     // The resource type is not recognized.
                     return Array.Empty<string>();
                 }
 
-                var lastAcceptableRecentDate = ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
+                var oldestAcceptableDate = ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
 
                 var stableVersionsSorted = allVersionsSorted.Where(v => !ApiVersionHelper.IsPreviewVersion(v)).ToArray();
                 var previewVersionsSorted = allVersionsSorted.Where(v => ApiVersionHelper.IsPreviewVersion(v)).ToArray();
 
-                var recentStableVersionsSorted = FilterRecentVersions(stableVersionsSorted, lastAcceptableRecentDate).ToArray();
-                var recentPreviewVersionsSorted = FilterRecentVersions(previewVersionsSorted, lastAcceptableRecentDate).ToArray();
+                var recentStableVersionsSorted = FilterRecentVersions(stableVersionsSorted, oldestAcceptableDate).ToArray();
+                var recentPreviewVersionsSorted = FilterRecentVersions(previewVersionsSorted, oldestAcceptableDate).ToArray();
 
                 // Start with all recent stable versions
                 List<string> acceptableVersions = recentStableVersionsSorted.ToList();
 
-                // Add any recent preview versions
-                acceptableVersions.AddRange(recentPreviewVersionsSorted);
-
-                // If there are no recent stable versions...
-                if (!recentStableVersionsSorted.Any())
+                // If no recent stable versions, add the most recent stable version, if any
+                if (!acceptableVersions.Any())
                 {
-                    // Allow the most recent, stable version even though it's old
-                    string? mostRecentStableVersion = null; //asdfg test with mostRecentStableVersion stays null
-                    if (stableVersionsSorted.Any())
-                    {
-                        mostRecentStableVersion = stableVersionsSorted.Last();
-                        acceptableVersions.Add(mostRecentStableVersion);
-                    }
+                    acceptableVersions.AddRange(FilterMostRecentApiVersion(stableVersionsSorted));
+                }
 
-                    // If there are also no recent preview resources, allow only those with the most recent date, but only if
-                    // it is newer than the stable one, or if there are no stable ones.
-                    // (Only allow the single most recent preview date - in the weird case where there are
-                    // multiple preview versions with that same date, take all those with that date).
-                    if (!recentPreviewVersionsSorted.Any())
+                // Add all recent (not old) preview versions that are newer than the newest stable version, if any
+                var mostRecentStableDate = GetNewestDateInApiVersions(stableVersionsSorted);
+                if (mostRecentStableDate is not null)
+                {
+                    Debug.Assert(stableVersionsSorted.Any(), "There should have been at least one stable version since mostRecentStableDate != null");
+                    acceptableVersions.AddRange(FilterApiVersionsNewerThanDate(recentPreviewVersionsSorted, mostRecentStableDate));
+                }
+                else
+                {
+                    // There are no stable versions available at all - add all preview versions that are recent enough
+                    acceptableVersions.AddRange(recentPreviewVersionsSorted);
+
+                    // If there are no recent preview versions, add the newest preview only
+                    if (!acceptableVersions.Any())
                     {
-                        var mostRecentPreviewDate = GetNewestDateInApiVersions(previewVersionsSorted);
-                        if (mostRecentPreviewDate is not null)
-                        {
-                            var mostRecentPreviewIsNewerThanMostRecentStable = mostRecentStableVersion is null
-                                || ApiVersionHelper.CompareApiVersionDates(mostRecentStableVersion, mostRecentPreviewDate) < 0;
-                            if (mostRecentPreviewIsNewerThanMostRecentStable)
-                            {
-                                var previewVersionsWithMostRecentDate = previewVersionsSorted.Where(v => ApiVersionHelper.CompareApiVersionDates(v, mostRecentPreviewDate) == 0);
-                                acceptableVersions.AddRange(previewVersionsWithMostRecentDate);
-                            }
-                        }
+                        acceptableVersions.AddRange(FilterMostRecentApiVersion(previewVersionsSorted));
+                        Debug.Assert(acceptableVersions.Any(), "There should have been at least one preview version available to add");
                     }
                 }
 
-                acceptableVersions.Sort();
-                return acceptableVersions.ToArray();
-            }
+                //// If there are no recent stable versions...
+                //if (!recentStableVersionsSorted.Any())
+                //{
+                //    // Allow the most recent, stable version even though it's old
+                //    string? mostRecentStableVersion = null; //asdfg test with mostRecentStableVersion stays null
+                //    if (stableVersionsSorted.Any())
+                //    {
+                //        mostRecentStableVersion = stableVersionsSorted.Last();
+                //        acceptableVersions.Add(mostRecentStableVersion);
+                //    }
 
-            private static IEnumerable<string> FilterRecentVersions(string[] apiVersions, string lastAcceptableRecentDate)
-            {
-                return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, lastAcceptableRecentDate) >= 0).ToArray(); //asdfg test
+                //    // If there are also no recent preview resources, allow only those with the most recent date, but only if
+                //    // it is newer than the stable one, or if there are no stable ones.
+                //    // (Only allow the single most recent preview date - in the weird case where there are
+                //    // multiple preview versions with that same date, take all those with that date).
+                //    if (!recentPreviewVersionsSorted.Any())
+                //    {
+                //        var mostRecentPreviewDate = GetNewestDateInApiVersions(previewVersionsSorted);
+                //        if (mostRecentPreviewDate is not null)
+                //        {
+                //            var mostRecentPreviewIsNewerThanMostRecentStable = mostRecentStableVersion is null
+                //                || ApiVersionHelper.CompareApiVersionDates(mostRecentStableVersion, mostRecentPreviewDate) < 0;
+                //            if (mostRecentPreviewIsNewerThanMostRecentStable)
+                //            {
+                //                var previewVersionsWithMostRecentDate = previewVersionsSorted.Where(v => ApiVersionHelper.CompareApiVersionDates(v, mostRecentPreviewDate) == 0);
+                //                acceptableVersions.AddRange(previewVersionsWithMostRecentDate);
+                //            }
+                //        }
+                //    }
+                //}
+
+                acceptableVersions.Sort((v1, v2) => //asdfg test
+                {
+                    // Sort by date descending, then stable first, then others alphabetically ascending
+                    var dateCompare = ApiVersionHelper.CompareApiVersionDates(v1, v2);
+                    if (dateCompare != 0)
+                    {
+                        return -dateCompare;
+                    }
+
+                    var v1IsStable = !ApiVersionHelper.IsPreviewVersion(v1);
+                    var v2IsStable = !ApiVersionHelper.IsPreviewVersion(v2);
+                    if (v1IsStable && !v2IsStable)
+                    {
+                        return -1;
+                    }
+                    else if (v2IsStable && !v2IsStable)
+                    {
+                        return 1;
+                    }
+
+                    return string.CompareOrdinal(v1, v2);
+                });
+
+                if (!acceptableVersions.Any())
+                {
+                    throw new InvalidOperationException($"Internal error: Didn't find any acceptable API versions for {fullyQualifiedResourceType}");
+                }
+                return acceptableVersions.ToArray();
             }
 
             private TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
@@ -345,6 +389,41 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             {
                 // We're safe to use Max on the apiVersion date strings since they're in the form yyyy-mm-dd, will give most recently since they're sorted ascending
                 return apiVersions.Max(v => ApiVersionHelper.TryParse(v).date);
+            }
+
+            // Retrieves the most recent API version (this could be more than one if there are multiple apiVersions
+            //   with the same, most recent date)
+            private static IEnumerable<string> FilterMostRecentApiVersion(string[] apiVersions)
+            {
+                var mostRecentDate = GetNewestDateInApiVersions(apiVersions);
+                if (mostRecentDate is not null)
+                {
+                    return FilterApiVersionsWithDate(apiVersions, mostRecentDate);
+                }
+
+                return Array.Empty<string>();
+            }
+
+            // Returns just the date string, not an entire apiVersion
+            private static IEnumerable<string> FilterApiVersionsNewerThanDate(string[] apiVersions, string date) 
+            {
+                return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) > 0);
+            }
+
+            private static IEnumerable<string> FilterApiVersionsNewerOrEqualToDate(string[] apiVersions, string date) 
+            {
+                return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) >= 0);
+            }
+
+            // Returns just the date string, not an entire apiVersion
+            private static IEnumerable<string> FilterApiVersionsWithDate(IEnumerable<string> apiVersions, string date)
+            {
+                return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) == 0);
+            }
+
+            private static IEnumerable<string> FilterRecentVersions(string[] apiVersions, string lastAcceptableRecentDate)
+            {
+                return FilterApiVersionsNewerOrEqualToDate(apiVersions, lastAcceptableRecentDate);
             }
         }
     }

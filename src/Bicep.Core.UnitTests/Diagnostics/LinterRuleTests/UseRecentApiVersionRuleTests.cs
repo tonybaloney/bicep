@@ -110,22 +110,44 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestClass]
-        public class GetAcceptableApiVersions
+        public class ApiVersionHelperTests
         {
-            //private void TestGetAcceptableApiVersions(string[] resourceTypes, string today, string[] expectedApiVersions, int maxAllowedAgeInDays = UseRecentApiVersionRule.MaxAllowedAgeInDays)
-            //{
-            //    TestGetAcceptableApiVersions(
-            //        string.Join('\n', resourceTypes),
-            //        today,
-            //        expectedApiVersions,
-            //        maxAllowedAgeInDays);
-            //}
+            [DataTestMethod]
+            // d1 < d2
+            [DataRow("2000-01-01", "2001-01-01", -1)]
+            [DataRow("2000-01-01", "2000-01-02", -1)]
+            [DataRow("1999-12-31", "2000-01-01", -1)]
+            [DataRow("2000-01-01-beta", "2001-01-01", -1)]
+            [DataRow("2000-01-01-beta", "2001-01-01-alpha", -1)]
+            [DataRow("2000-01-01", "2001-01-01-alpha", -1)]
+            // d1 > d2
+            [DataRow("2001-01-01", "2000-01-01", 1)]
+            [DataRow("2000-01-02", "2000-01-01", 1)]
+            [DataRow("2000-01-01", "1999-12-31", 1)]
+            [DataRow("2001-01-01", "2000-01-01-preview", 1)]
+            [DataRow("2001-01-01-privewpreview", "2000-01-01-beta", 1)]
+            [DataRow("2001-01-01-rc", "2000-01-01", 1)]
+            // d1 = d2
+            [DataRow("2001-01-01", "2001-01-01", 0)]
+            [DataRow("1999-12-31", "1999-12-31", 0)]
+            [DataRow("1999-12-31-alpha", "1999-12-31", 0)]
+            [DataRow("1999-12-31-alpha", "1999-12-31-preview", 0)]
+            [DataRow("1999-12-31", "1999-12-31", 0)]
+            public void CompareApiVersionDates(string date1, string date2, int expectedResult)
+            {
+                int result = ApiVersionHelper.CompareApiVersionDates(date1, date2);
+                result.Should().Be(expectedResult);
+            }
+        }
 
+        [TestClass]
+        public class GetAcceptableApiVersionsTests
+        {
             private void TestGetAcceptableApiVersions(string fullyQualifiedResourceType, string resourceTypes, string today, string[] expectedApiVersions, int maxAllowedAgeInDays = UseRecentApiVersionRule.MaxAllowedAgeInDays)
             {
                 var apiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(resourceTypes));
                 var allowedVersions = Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, fullyQualifiedResourceType);
-                allowedVersions.Should().BeEquivalentTo(expectedApiVersions);
+                allowedVersions.Should().BeEquivalentTo(expectedApiVersions, options => options.WithStrictOrdering());
             }
 
 
@@ -176,7 +198,6 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             [TestMethod]
             public void GAAPI_NoStable_OldPreview_PickOnlyMostRecentPreview()
             {
-                //asdfg
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
                     @"
@@ -211,7 +232,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_NoStable_NewPreview_PickNewPreview()
+            public void GAAPI_NoStable_NewPreview_PickAllNewPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -223,9 +244,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2419-07-21-preview",
-                        "2419-08-15-beta",
                         "2419-09-07-alpha",
+                        "2419-08-15-beta",
+                        "2419-07-21-preview",
                     });
             }
 
@@ -243,17 +264,16 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2419-09-07-beta
                         Fake.Kusto/clusters@2419-09-07-privatepreview
                     ",
-
                     "2421-07-07",
                     new string[]
                     {
-                        "2419-07-21-preview",
-                        "2419-08-15-beta",
                         "2419-09-07-alpha",
-                        "2419-07-21-beta",
-                        "2419-08-15-privatepreview",
                         "2419-09-07-beta",
                         "2419-09-07-privatepreview",
+                        "2419-08-15-beta",
+                        "2419-08-15-privatepreview",
+                        "2419-07-21-beta",
+                        "2419-07-21-preview",
                     });
             }
 
@@ -275,9 +295,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2419-08-21-beta",
-                        "2419-07-15-privatepreview",
                         "2419-09-07-beta",
+                        "2419-08-21-beta",
+                        "2419-07-15-privatepreview",                       
                     });
             }
 
@@ -340,7 +360,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_OldPreview_NewestPreviewIsNewThanNewestStable_PickNewestStableAndNewestPreview()
+            public void GAAPI_OldStable_OldPreview_NewestPreviewIsNewThanNewestStable_PickJustNewestStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -351,13 +371,12 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-06-15
                         Fake.Kusto/clusters@2413-09-07-preview
                         Fake.Kusto/clusters@2413-09-07-beta
+                        Fake.Kusto/clusters@2413-09-08-beta
                     ",
                     "2421-07-07",
                     new string[]
                     {
                         "2413-06-15",
-                        "2413-09-07-preview",
-                        "2413-09-07-beta",
                     });
             }
 
@@ -372,13 +391,15 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2413-06-15
                         Fake.Kusto/clusters@2419-09-07-preview
                         Fake.Kusto/clusters@2419-09-07-beta
+                        Fake.Kusto/clusters@2419-09-08-beta
                     ",
                     "2421-07-07",
                     new string[]
                     {
-                        "2413-06-15",
-                        "2419-09-07-preview",
+                        "2419-09-08-beta",
                         "2419-09-07-beta",
+                        "2419-09-07-preview",
+                        "2413-06-15",
                     });
             }
 
@@ -397,12 +418,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2413-05-15",
-                        "2419-09-07-preview",
                         "2419-09-07-beta",
+                        "2419-09-07-preview",
+                        "2413-05-15",
                     });
             }
-
 
             [TestMethod]
             public void GAAPI_NewStable_NoPreview_PickNewStable()
@@ -417,9 +437,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2419-07-21",
-                        "2419-08-15",
                         "2420-09-18",
+                        "2419-08-15",
+                        "2419-07-21",
                     });
             }
 
@@ -430,6 +450,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 TestGetAcceptableApiVersions(
                    "Fake.Kusto/clusters",
                    @"
+                        Fake.Kusto/clusters@2413-07-21
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-07-15-alpha
                         Fake.Kusto/clusters@2419-07-16-beta
@@ -438,13 +459,13 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                    "2421-07-07",
                    new string[]
                    {
-                        "2419-07-21",
                         "2420-09-18",
+                        "2419-07-21",
                    });
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_OnePreviewIsOlder() 
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_OnePreviewIsOlder()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -454,12 +475,12 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         Fake.Kusto/clusters@2420-09-18
                         Fake.Kusto/clusters@2421-07-16-beta
                     ",
-                        "2421-07-07",
-                        new string[]
-                        {
-                        "2419-07-21",
-                        "2420-09-18",
+                    "2421-07-07",
+                    new string[]
+                    {
                         "2421-07-16-beta",
+                        "2420-09-18",
+                        "2419-07-21",
                     });
             }
 
@@ -469,6 +490,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
                     @"
+                        Fake.Kusto/clusters@2413-07-21
                         Fake.Kusto/clusters@2419-07-21
                         Fake.Kusto/clusters@2419-07-15-alpha
                         Fake.Kusto/clusters@2420-09-18
@@ -478,10 +500,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2419-07-21",
-                        "2420-09-18",
-                        "2421-07-16-beta",
                         "2421-07-17-preview",
+                        "2421-07-16-beta",
+                        "2420-09-18",
+                        "2419-07-21",
                     });
             }
 
@@ -518,35 +540,32 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     ",
                     "2421-07-07",
                     new string[]
-                    {
-                        "2416-09-18",
-                        "2421-07-16-beta",
+                    {                 
                         "2421-07-17-preview",
+                        "2421-07-16-beta",
+                        "2416-09-18",
                     });
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable() //asdfg should this be a separate rule?
+            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_AllAreNew_NoPreviewAreNewerThanStable() //asdfg should this be a separate rule?
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
                     @"
-                    Fake.Kusto/clusters@2413-01-21-preview
-                    Fake.Kusto/clusters@2419-07-21
-                    Fake.Kusto/clusters@2419-07-15-alpha
-                    Fake.Kusto/clusters@2419-07-16-beta
-                    Fake.Kusto/clusters@2420-09-18
-                ",
+                        Fake.Kusto/clusters@2413-01-21-preview
+                        Fake.Kusto/clusters@2419-07-11
+                        Fake.Kusto/clusters@2419-07-15-alpha
+                        Fake.Kusto/clusters@2419-07-16-beta
+                        Fake.Kusto/clusters@2420-09-18
+                    ",
                     "2421-07-07",
                     new string[]
                     {
-                    "2419-07-21",
-                    "2419-07-15-alpha",
-                    "2419-07-16-beta",
-                    "2420-09-18",
+                        "2420-09-18",
+                        "2419-07-11",
                     });
             }
-
 
             [TestMethod]
             public void GAAPI_OldAndNewStable_NoPreview_PickNewStable()
@@ -563,13 +582,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2419-09-07",
-                        "2421-01-01",
                         "2425-01-01",
+                        "2421-01-01",
+                        "2419-09-07",
                     });
             }
-
-
 
             [TestMethod]
             public void GAAPI_OldAndNewStable_OldPreview_PickNewStable()
@@ -590,13 +607,13 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
+                        "2420-09-18",
                         "2420-06-14",
-                        "2420-09-18"
                     });
             }
 
             [TestMethod]
-            public void GAAPI_OldAndNewStable_NewPreview_PickNewStableAndNewPreview()
+            public void GAAPI_OldAndNewStable_NewPreviewButOlderThanNewestStable_PickNewStableOnly()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -614,23 +631,21 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2420-06-14",
                         "2420-09-18",
-                        "2419-09-07-privatepreview",
-                        "2419-09-07-preview",
+                        "2420-06-14",     
                     });
             }
 
-
             [TestMethod]
-            public void GAAPI_OldAndNewStable_OldAndNewPreview_PickNewStableAndNewPreview()
+            public void GAAPI_OldAndNewStable_OldAndNewPreview_PickNewStableAndPreviewNewestThanNewestStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
                     @"
                         Fake.Kusto/clusters@2413-09-07-privatepreview
-                        Fake.Kusto/clusters@2419-09-07-privatepreview
+                        Fake.Kusto/clusters@2421-09-07-privatepreview
                         Fake.Kusto/clusters@2419-09-07-preview
+                        Fake.Kusto/clusters@2417-09-07-preview
                         Fake.Kusto/clusters@2414-01-21
                         Fake.Kusto/clusters@2414-05-15
                         Fake.Kusto/clusters@2414-09-07
@@ -642,10 +657,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2421-07-07",
                     new string[]
                     {
-                        "2420-06-14",
+                        "2421-09-07-privatepreview",
                         "2420-09-18",
-                        "2419-09-07-privatepreview",
-                        "2419-09-07-preview",
+                        "2420-06-14",  
                     });
             }
 
