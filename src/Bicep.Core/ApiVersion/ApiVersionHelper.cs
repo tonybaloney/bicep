@@ -2,7 +2,9 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Bicep.Core.ApiVersion
@@ -64,6 +66,16 @@ namespace Bicep.Core.ApiVersion
             }
 
             return DateTime.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+
+        public static IEnumerable<string> FilterPreview(IEnumerable<string> apiVersions)
+        {
+            return apiVersions.Where(v => ApiVersionHelper.IsPreviewVersion(v)).ToArray();
+        }
+
+        public static IEnumerable<string> FilterNonPreview(IEnumerable<string> apiVersions)
+        {
+            return apiVersions.Where(v => !ApiVersionHelper.IsPreviewVersion(v)).ToArray();
         }
     }
 }

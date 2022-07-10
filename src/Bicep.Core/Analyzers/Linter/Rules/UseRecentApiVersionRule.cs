@@ -140,12 +140,41 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     return null;
                 }
 
-                int ageInDays = today.Subtract(ApiVersionHelper.ParseDate(actualApiVersion)).Days;
+                // At this point, the rule has failed. Question is, why...
+                string? failureReason = null;
+
+                // Is it because the version is recent but is preview, and there's a newer stable version available?
+                if (ApiVersionHelper.IsPreviewVersion(actualApiVersion) && IsRecent(actualApiVersion, today, maxAllowedAgeInDays)/*asdfg ask brian*/)
+                {
+                    var mostRecentStableVersion = GetNewestDate(ApiVersionHelper.FilterNonPreview(allApiVersions));
+                    if (mostRecentStableVersion is not null)
+                    {
+                        var comparison = ApiVersionHelper.CompareApiVersionDates(actualApiVersion, mostRecentStableVersion);
+                        var stableIsMoreRecent = comparison < 0;
+                        var stableIsSameDate = comparison == 0;
+                        if (stableIsMoreRecent)
+                        {//asdfg testpoint
+                            failureReason = $"'{actualApiVersion}' is a preview version and there is a more recent non-preview version available.";//asdfg what version recommend?
+                        }
+                        else if (stableIsSameDate)
+                        {//asdfg testpoint
+                            failureReason = $"'{actualApiVersion}' is a preview version and there is a non-preview version available with the same date.";//asdfg what version recommend?
+                        }
+                    }
+                }
+
+                if (failureReason is null)
+                {
+                    int ageInDays = today.Subtract(ApiVersionHelper.ParseDate(actualApiVersion)).Days;
+                    failureReason = $"'{actualApiVersion}' is {ageInDays} days old, should be no more than {maxAllowedAgeInDays} days old.";
+                }
+
+                Debug.Assert(failureReason is not null);
                 return CreateCodeFix(
                     replacementSpan,
                     fullyQualifiedResourceType,
                     actualApiVersion,
-                    $"'{actualApiVersion}' is {ageInDays} days old, should be no more than {maxAllowedAgeInDays} days old.",
+                    failureReason,
                     acceptableApiVersions);
             }
 
@@ -159,10 +188,10 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     return (allVersionsSorted, Array.Empty<string>());
                 }
 
-                var oldestAcceptableDate = ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
+                var oldestAcceptableDate = GetOldestAcceptableDate(today, maxAllowedAgeInDays);
 
-                var stableVersionsSorted = allVersionsSorted.Where(v => !ApiVersionHelper.IsPreviewVersion(v)).ToArray();
-                var previewVersionsSorted = allVersionsSorted.Where(v => ApiVersionHelper.IsPreviewVersion(v)).ToArray();
+                var stableVersionsSorted = ApiVersionHelper.FilterNonPreview(allVersionsSorted).ToArray();
+                var previewVersionsSorted = ApiVersionHelper.FilterPreview(allVersionsSorted).ToArray();
 
                 var recentStableVersionsSorted = FilterRecentVersions(stableVersionsSorted, oldestAcceptableDate).ToArray();
                 var recentPreviewVersionsSorted = FilterRecentVersions(previewVersionsSorted, oldestAcceptableDate).ToArray();
@@ -177,7 +206,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 }
 
                 // Add all recent (not old) preview versions that are newer than the newest stable version, if any
-                var mostRecentStableDate = GetNewestDateInApiVersions(stableVersionsSorted);
+                var mostRecentStableDate = GetNewestDate(stableVersionsSorted);
                 if (mostRecentStableDate is not null)
                 {
                     Debug.Assert(stableVersionsSorted.Any(), "There should have been at least one stable version since mostRecentStableDate != null");
@@ -250,7 +279,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             }
 
             // Returns just the date string, not an entire apiVersion
-            private static string? GetNewestDateInApiVersions(string[] apiVersions) //asdfg test
+            private static string? GetNewestDate(IEnumerable<string> apiVersions) //asdfg test
             {
                 // We're safe to use Max on the apiVersion date strings since they're in the form yyyy-MM-dd, will give most recently since they're sorted ascending
                 return apiVersions.Max(v => ApiVersionHelper.TryParse(v).date);
@@ -258,9 +287,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
             // Retrieves the most recent API version (this could be more than one if there are multiple apiVersions
             //   with the same, most recent date)
-            private static IEnumerable<string> FilterMostRecentApiVersion(string[] apiVersions)
+            private static IEnumerable<string> FilterMostRecentApiVersion(IEnumerable<string> apiVersions)
             {
-                var mostRecentDate = GetNewestDateInApiVersions(apiVersions);
+                var mostRecentDate = GetNewestDate(apiVersions);
                 if (mostRecentDate is not null)
                 {
                     return FilterApiVersionsWithDate(apiVersions, mostRecentDate);
@@ -270,12 +299,12 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             }
 
             // Returns just the date string, not an entire apiVersion
-            private static IEnumerable<string> FilterApiVersionsNewerThanDate(string[] apiVersions, string date)
+            private static IEnumerable<string> FilterApiVersionsNewerThanDate(IEnumerable<string> apiVersions, string date)
             {
                 return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) > 0);
             }
 
-            private static IEnumerable<string> FilterApiVersionsNewerOrEqualToDate(string[] apiVersions, string date)
+            private static IEnumerable<string> FilterApiVersionsNewerOrEqualToDate(IEnumerable<string> apiVersions, string date)
             {
                 return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) >= 0);
             }
@@ -286,9 +315,27 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) == 0);
             }
 
-            private static IEnumerable<string> FilterRecentVersions(string[] apiVersions, string lastAcceptableRecentDate)
+            //asdfg
+            //private static bool IsRecent(string apiVersion, string lastAcceptableRecentDate)
+            //{
+            //    return ApiVersionHelper.CompareApiVersionDates(apiVersion, lastAcceptableRecentDate) >= 0;
+            //}
+
+            private static bool IsRecent(string apiVersion, DateTime today, int maxAllowedAgeInDays)
+            {
+                //asdfg more efficient, just use dates...?
+                var oldestAcceptableDate = GetOldestAcceptableDate(today, maxAllowedAgeInDays);
+                return ApiVersionHelper.CompareApiVersionDates(apiVersion, oldestAcceptableDate) >= 0;
+            }
+
+            private static IEnumerable<string> FilterRecentVersions(IEnumerable<string> apiVersions, string lastAcceptableRecentDate)
             {
                 return FilterApiVersionsNewerOrEqualToDate(apiVersions, lastAcceptableRecentDate);
+            }
+
+            private static string GetOldestAcceptableDate(DateTime today, int maxAllowedAgeInDays)
+            {
+               return  ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
             }
         }
     }

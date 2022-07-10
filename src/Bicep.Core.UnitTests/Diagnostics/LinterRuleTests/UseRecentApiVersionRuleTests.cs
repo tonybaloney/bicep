@@ -815,8 +815,28 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                      null);
             }
 
+            [TestMethod]
+            public void WithOldPreviewVersion_WhenRecentPreviewVersionIsAvailable_ButIsOlderThanGAVersion_ShouldAddDiagnosticsAboutBeingOld()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-5 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
+
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-1 * 365);
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+                DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2 * 365);
+                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
+
+                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
+                    (
+                       //asdfg ask brian: show by date or ga first?
+                       $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+                       recentGAVersion //ASDFG??? or preview version?  ask brian
+                    ));
+            }
+
             //[TestMethod]
-            //public void WithPreviewVersion_WhenRecentPreviewVersionIsAvailable_ShouldAddDiagnostics()
+            //public void WithPreviewVersion_WhenRecentPreviewVersionIsAvailable_AndIfNewerGAVersion_ShouldAddDiagnosticsToUseGA()
             //{
             //    DateTime currentVersionDate = DateTime.Today.AddDays(-5 * 365);
             //    string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
@@ -829,14 +849,14 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             //    TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
             //        (
-            //        //asdfg ask brian: show by date or ga first?
-            //           $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentPreviewVersion}, {recentGAVersion}",
+            //           //asdfg ask brian: show by date or ga first?
+            //           $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is a preview version and there is a more recent non-preview version available. Acceptable versions: {recentPreviewVersion}, {recentGAVersion}",
             //           recentGAVersion //ASDFG??? or preview version?  ask brian
             //        ));
             //}
 
             [TestMethod]
-            public void WithPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()
+            public void WithOldPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()
             {
                 DateTime currentVersionDate = DateTime.Today.AddDays(-5 * 365);
                 string currentVersion = ApiVersionHelper.Format(currentVersionDate);
@@ -849,54 +869,68 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
                 TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
                   (
-                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is {5*365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
                      recentGAVersion
                   ));
             }
 
-            //[TestMethod]
-            //public void WithPreviewVersion_WhenRecentGAVersionIsSameAsPreviewVersion_ShouldAddDiagnosticsUsingGAVersion()
-            //{
-            //    DateTime currentVersionDate = DateTime.Today.AddDays(-3 * 365);
-            //    string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
 
-            //    DateTime recentGAVersionDate = DateTime.Today.AddDays(-2 * 365);
-            //    string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+            [TestMethod]
+            public void WithRecentPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-2 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate);
 
-            //    DateTime recentPreviewVersionDate = recentGAVersionDate;
-            //    string recentPreviewVersion = recentGAVersion + "-preview";
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-1 * 365);
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-            //    TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
-            //     (
-            //        $"Use recent API version for 'Whoever.whatever/whichever'. use stable asdfg'{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
-            //        recentGAVersion
-            //     ));
-            //}
+                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate },
+                  (
+                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is a preview version and there is a more recent non-preview version available. Acceptable versions: {recentGAVersion}",
+                     recentGAVersion
+                  ));
+            }
 
-            //[TestMethod]
-            //public void WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsNotRecent_ShouldAddDiagnosticsUsingRecentPreviewVersion()
-            //{
-            //    DateTime currentVersionDate = DateTime.Today.AddDays(-3*365);
-            //    string currentVersion = ApiVersionHelper.Format(currentVersionDate,"-preview");
+            [TestMethod]
+            public void WithRecentPreviewVersion_WhenRecentGAVersionIsSameAsPreviewVersion_ShouldAddDiagnosticsUsingGAVersion()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-2 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
 
-            //    DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2*365);
-            //    string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate,"-preview");
+                DateTime recentGAVersionDate = currentVersionDate;
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-            //    TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] {  }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
-            //        (
-            //           $"Use recent API version for 'Whoever.whatever/whichever'. use stable asdfg'{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentPreviewVersion}",
-            //           recentPreviewVersion
-            //        ));
-            //}
+                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate },
+                 (
+                    $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is a preview version and there is a non-preview version available with the same date. Acceptable versions: {recentGAVersion}",
+                    recentGAVersion
+                 ));
+            }
+
+            [TestMethod]
+            public void WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsNotRecent_ShouldAddDiagnosticsUsingRecentPreviewVersion()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-3 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
+
+                DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2 * 365);
+                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
+
+                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
+                    (
+                       $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentPreviewVersion}",
+                       recentPreviewVersion
+                    ));
+            }
 
             [TestMethod]
             public void WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsRecent_ShouldNotAddDiagnostics()
             {
-                DateTime currentVersionDate = DateTime.Today.AddDays(-2*365);
-                string currentVersion = ApiVersionHelper.Format(currentVersionDate,"-preview");
+                DateTime currentVersionDate = DateTime.Today.AddDays(-2 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
 
                 DateTime recentPreviewVersionDate = currentVersionDate;
-                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate,"-preview");
+                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
 
                 TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
                     null);
