@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.ApiVersion
 {
     public static class ApiVersionSuffixes //asdfg needed?
     {

@@ -3,7 +3,7 @@
 
 using System.Collections.Generic;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Emit;
 using Bicep.Core.Extensions;

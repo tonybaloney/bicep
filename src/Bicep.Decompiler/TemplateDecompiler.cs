@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Decompiler.Rewriters;
 using Bicep.Core.Extensions;

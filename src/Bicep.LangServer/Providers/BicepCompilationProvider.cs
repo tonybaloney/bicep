@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 using System.Collections.Immutable;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Features;
 using Bicep.Core.FileSystem;

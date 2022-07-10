@@ -517,7 +517,7 @@ namespace Bicep.Core {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Use recent API version {0}.
+        ///   Looks up a localized string similar to Use recent API version for &apos;{0}&apos;. {1} Acceptable versions: {2}.
         /// </summary>
         internal static string UseRecentApiVersionRuleMessageFormat {
             get {

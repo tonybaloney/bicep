@@ -2,10 +2,10 @@
 // Licensed under the MIT License.
 
 using System;
+using System.Linq;
 using Bicep.Core.Analyzers.Linter;
 using Bicep.Core.Analyzers.Linter.Rules;
 using Bicep.Core.ApiVersion;
-using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Json;
 using Bicep.Core.Parsing;
@@ -13,7 +13,6 @@ using Bicep.Core.Semantics;
 using Bicep.Core.UnitTests.Utils;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using static Bicep.Core.Analyzers.Linter.Rules.UseRecentApiVersionRule;
 
 // asdfg test with case sensitivity
 // asdfg test with different scopes
@@ -63,7 +62,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             // Test with the linter thinking today's date is FAKE_TODAY_DATE and also fake resource types from FakeResourceTypes
             // Note: The compiler does not know about these fake types, only the linter.
 
-            var apiProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(string.Join('\n', resourceTypes)));
+            var apiProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(string.Join('\n', resourceTypes)));
 
             AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
                 bicep,
@@ -75,18 +74,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         // Uses fake resource types from FakeResourceTypes
-        private readonly IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(FakeResourceTypes.ResourceScope));
+        private readonly IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(FakeResourceTypes.ResourceScope));
 
-        // Uses fake today's date
         private static RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
 
-        public static SemanticModel SemanticModel => new Compilation(
-           BicepTestConstants.Features,
-           TestTypeHelper.CreateEmptyProvider(),
-           SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
-           BicepTestConstants.BuiltInConfiguration,
-           BicepTestConstants.ApiVersionProvider,
-           new LinterAnalyzer(ConfigurationWithFakeTodayDate)).GetEntrypointSemanticModel();
+        private static SemanticModel SemanticModel(RootConfiguration configuration, IApiVersionProvider apiVersionProvider)
+            => new Compilation(
+                   BicepTestConstants.Features,
+                   TestTypeHelper.CreateEmptyProvider(),
+                   SourceFileGroupingFactory.CreateFromText(string.Empty, BicepTestConstants.FileResolver),
+                   configuration,
+                   apiVersionProvider,
+                   new LinterAnalyzer(configuration))
+                .GetEntrypointSemanticModel();
 
         private static RootConfiguration CreateConfigurationWithFakeToday(string today)
         {
@@ -110,49 +110,18 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestClass]
-        public class ApiVersionHelperTests
-        {
-            [DataTestMethod]
-            // d1 < d2
-            [DataRow("2000-01-01", "2001-01-01", -1)]
-            [DataRow("2000-01-01", "2000-01-02", -1)]
-            [DataRow("1999-12-31", "2000-01-01", -1)]
-            [DataRow("2000-01-01-beta", "2001-01-01", -1)]
-            [DataRow("2000-01-01-beta", "2001-01-01-alpha", -1)]
-            [DataRow("2000-01-01", "2001-01-01-alpha", -1)]
-            // d1 > d2
-            [DataRow("2001-01-01", "2000-01-01", 1)]
-            [DataRow("2000-01-02", "2000-01-01", 1)]
-            [DataRow("2000-01-01", "1999-12-31", 1)]
-            [DataRow("2001-01-01", "2000-01-01-preview", 1)]
-            [DataRow("2001-01-01-privewpreview", "2000-01-01-beta", 1)]
-            [DataRow("2001-01-01-rc", "2000-01-01", 1)]
-            // d1 = d2
-            [DataRow("2001-01-01", "2001-01-01", 0)]
-            [DataRow("1999-12-31", "1999-12-31", 0)]
-            [DataRow("1999-12-31-alpha", "1999-12-31", 0)]
-            [DataRow("1999-12-31-alpha", "1999-12-31-preview", 0)]
-            [DataRow("1999-12-31", "1999-12-31", 0)]
-            public void CompareApiVersionDates(string date1, string date2, int expectedResult)
-            {
-                int result = ApiVersionHelper.CompareApiVersionDates(date1, date2);
-                result.Should().Be(expectedResult);
-            }
-        }
-
-        [TestClass]
         public class GetAcceptableApiVersionsTests
         {
             private void TestGetAcceptableApiVersions(string fullyQualifiedResourceType, string resourceTypes, string today, string[] expectedApiVersions, int maxAllowedAgeInDays = UseRecentApiVersionRule.MaxAllowedAgeInDays)
             {
-                var apiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeTypes(resourceTypes));
-                var allowedVersions = Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, fullyQualifiedResourceType);
+                var apiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(resourceTypes));
+                var allowedVersions = UseRecentApiVersionRule.Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, fullyQualifiedResourceType);
                 allowedVersions.Should().BeEquivalentTo(expectedApiVersions, options => options.WithStrictOrdering());
             }
 
 
             [TestMethod]
-            public void GAAPI_CaseInsensitiveResourceType()
+            public void CaseInsensitiveResourceType()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.KUSTO/clusters",
@@ -167,7 +136,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_CaseInsensitiveApiSuffix()
+            public void CaseInsensitiveApiSuffix()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.KUSTO/clusters",
@@ -182,7 +151,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_ResourceTypeNotRecognized_ReturnNone()
+            public void ResourceTypeNotRecognized_ReturnNone()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kisto/clusters",
@@ -196,7 +165,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_NoStable_OldPreview_PickOnlyMostRecentPreview()
+            public void NoStable_OldPreview_PickOnlyMostRecentPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -213,7 +182,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_NoStable_OldPreview_PickOnlyMostRecentPreview_MultiplePreviewWithSameDate()
+            public void NoStable_OldPreview_PickOnlyMostRecentPreview_MultiplePreviewWithSameDate()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -232,7 +201,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_NoStable_NewPreview_PickAllNewPreview()
+            public void NoStable_NewPreview_PickAllNewPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -251,7 +220,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GGAAPI_NoStable_NewPreview_PickNewPreview_MultiplePreviewHaveSameDate()
+            public void GNoStable_NewPreview_PickNewPreview_MultiplePreviewHaveSameDate()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -279,7 +248,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
 
             [TestMethod]
-            public void GGAAPI_NoStable_OldAndNewPreview_PickNewPreview()
+            public void GNoStable_OldAndNewPreview_PickNewPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -297,12 +266,12 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     {
                         "2419-09-07-beta",
                         "2419-08-21-beta",
-                        "2419-07-15-privatepreview",                       
+                        "2419-07-15-privatepreview",
                     });
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_NoPreview_PickOnlyMostRecentStable()
+            public void OldStable_NoPreview_PickOnlyMostRecentStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -323,7 +292,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_OldPreview_NewestPreviewIsOlderThanNewestStable_PickOnlyNewestStable()
+            public void OldStable_OldPreview_NewestPreviewIsOlderThanNewestStable_PickOnlyNewestStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -341,7 +310,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_OldPreview_NewestPreviewIsSameAgeAsNewestStable_PickOnlyNewestStable()
+            public void OldStable_OldPreview_NewestPreviewIsSameAgeAsNewestStable_PickOnlyNewestStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -360,7 +329,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_OldPreview_NewestPreviewIsNewThanNewestStable_PickJustNewestStable()
+            public void OldStable_OldPreview_NewestPreviewIsNewThanNewestStable_PickJustNewestStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -381,7 +350,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_NewPreview_PickNewestStableAndNewPreview()
+            public void OldStable_NewPreview_PickNewestStableAndNewPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -404,7 +373,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldStable_OldAndNewPreview_PickNewestStableAndNewPreview()
+            public void OldStable_OldAndNewPreview_PickNewestStableAndNewPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -425,7 +394,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_NewStable_NoPreview_PickNewStable()
+            public void NewStable_NoPreview_PickNewStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -445,7 +414,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             //asdfg should this be a separate rule?
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_NoPreviewAreNewer()
+            public void OnlyPickPreviewThatAreNewerThanNewestStable_NoPreviewAreNewer()
             {
                 TestGetAcceptableApiVersions(
                    "Fake.Kusto/clusters",
@@ -465,7 +434,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_OnePreviewIsOlder()
+            public void OnlyPickPreviewThatAreNewerThanNewestStable_OnePreviewIsOlder()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -485,7 +454,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer() //asdfg should this be a separate rule?
+            public void OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer() //asdfg should this be a separate rule?
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -508,7 +477,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer_AllAreOld()
+            public void OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer_AllAreOld()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -527,7 +496,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer_AllStableAreOld()
+            public void OnlyPickPreviewThatAreNewerThanNewestStable_MultiplePreviewsAreNewer_AllStableAreOld()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -540,7 +509,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     ",
                     "2421-07-07",
                     new string[]
-                    {                 
+                    {
                         "2421-07-17-preview",
                         "2421-07-16-beta",
                         "2416-09-18",
@@ -548,7 +517,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OnlyPickPreviewThatAreNewerThanNewestStable_AllAreNew_NoPreviewAreNewerThanStable() //asdfg should this be a separate rule?
+            public void OnlyPickPreviewThatAreNewerThanNewestStable_AllAreNew_NoPreviewAreNewerThanStable() //asdfg should this be a separate rule?
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -568,7 +537,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldAndNewStable_NoPreview_PickNewStable()
+            public void OldAndNewStable_NoPreview_PickNewStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -589,7 +558,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldAndNewStable_OldPreview_PickNewStable()
+            public void OldAndNewStable_OldPreview_PickNewStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -613,7 +582,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GAAPI_OldAndNewStable_NewPreviewButOlderThanNewestStable_PickNewStableOnly()
+            public void OldAndNewStable_NewPreviewButOlderThanNewestStable_PickNewStableOnly()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -632,12 +601,12 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     new string[]
                     {
                         "2420-09-18",
-                        "2420-06-14",     
+                        "2420-06-14",
                     });
             }
 
             [TestMethod]
-            public void GAAPI_OldAndNewStable_OldAndNewPreview_PickNewStableAndPreviewNewestThanNewestStable()
+            public void OldAndNewStable_OldAndNewPreview_PickNewStableAndPreviewNewestThanNewestStable()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -659,7 +628,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     {
                         "2421-09-07-privatepreview",
                         "2420-09-18",
-                        "2420-06-14",  
+                        "2420-06-14",
                     });
             }
 
@@ -742,309 +711,202 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             CompileAndTestWithFakeDateAndTypes(text, expectedUseRecentApiVersions);
         }
 
-        [TestMethod]
-        public void AddCodeFixIfGAVersionIsNotLatest_WithCurrentVersionLessThanTwoYearsOld_ShouldNotAddDiagnostics()
+        [TestClass]
+        public class CreateFixIfFailsTests
         {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-1);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
+            private void TestCreateFixIfFails(
+                DateTime currentVersionDate,
+                string currentVersionSuffix,
+                DateTime[] gaVersionDates,
+                DateTime[] previewVersionDates,
+                (string description, string replacement)? expectedFix)
+            {
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate) + currentVersionSuffix;
+                string[] gaVersions = gaVersionDates.Select(d => "Whoever.whatever/whichever@" + ApiVersionHelper.Format(d)).ToArray();
+                string[] previewVersions = previewVersionDates.Select(d => "Whoever.whatever/whichever@" + ApiVersionHelper.Format(d) + "-preview").ToArray();
+                var apiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(gaVersions.Concat(previewVersions)));
+                var semanticModel = SemanticModel(BicepTestConstants.BuiltInConfiguration, apiVersionProvider);
+                var visitor = new UseRecentApiVersionRule.Visitor(semanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
 
-            DateTime recentGAVersionDate = DateTime.Today.AddMonths(-5);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+                var fix = visitor.CreateFixIfFails(new TextSpan(17, 47), "Whoever.whatever/whichever", currentVersion);
 
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                     recentGAVersion,
-                                                     currentVersion);
+                if (expectedFix == null)
+                {
+                    fix.Should().BeNull();
+                }
+                else
+                {
+                    fix.Should().NotBeNull();
+                    fix!.Value.span.Should().Be(new TextSpan(17, 47));
+                    fix!.Value.fix.Description.Should().Be(expectedFix.Value.description);
+                    fix!.Value.fix.Replacements.Should().SatisfyRespectively(r => r.Span.Should().Be(new TextSpan(17, 47)));
+                    fix!.Value.fix.Replacements.Select(r => r.Text).Should().BeEquivalentTo(new string[] { expectedFix.Value.replacement });
+                }
+            }
 
-            fix.Should().BeNull();
+            [TestMethod]
+            public void WithCurrentVersionLessThanTwoYearsOld_ShouldNotAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-1 * 365);
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-5 * 31);
+
+                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
+                    null);
+            }
+
+            [TestMethod]
+            public void WithCurrentVersionMoreThanTwoYearsOldAndRecentApiVersionIsAvailable_ShouldAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-3 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate);
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-5 * 30);
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
+                    (
+                        $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+                        recentGAVersion
+                    ));
+            }
+
+            [TestMethod]
+            public void WithCurrentAndRecentApiVersionsMoreThanTwoYearsOld_ShouldAddDiagnosticsToUseRecentApiVersion()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-4 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate);
+
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-3 * 365);
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
+                     (
+                        $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {4 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+                        recentGAVersion
+                     ));
+            }
+
+            [TestMethod]
+            public void WhenCurrentAndRecentApiVersionsAreSameAndMoreThanTwoYearsOld_ShouldNotAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-3 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate);
+
+                DateTime recentGAVersionDate = currentVersionDate;
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate }, new DateTime[] { },
+                    null);
+            }
+
+            [TestMethod]
+            public void WithPreviewVersion_WhenCurrentPreviewVersionIsLatest_ShouldNotAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate);
+
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-3 * 365);
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+                DateTime recentPreviewVersionDate = currentVersionDate;
+                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
+
+
+                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { recentPreviewVersionDate },
+                     null);
+            }
+
+            //[TestMethod]
+            //public void WithPreviewVersion_WhenRecentPreviewVersionIsAvailable_ShouldAddDiagnostics()
+            //{
+            //    DateTime currentVersionDate = DateTime.Today.AddDays(-5 * 365);
+            //    string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
+
+            //    DateTime recentGAVersionDate = DateTime.Today.AddDays(-3 * 365);
+            //    string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+            //    DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2 * 365);
+            //    string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
+
+            //    TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
+            //        (
+            //        //asdfg ask brian: show by date or ga first?
+            //           $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentPreviewVersion}, {recentGAVersion}",
+            //           recentGAVersion //ASDFG??? or preview version?  ask brian
+            //        ));
+            //}
+
+            [TestMethod]
+            public void WithPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-5 * 365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate);
+
+                DateTime recentGAVersionDate = DateTime.Today.AddDays(-2 * 365);
+                string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+                DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-3 * 365);
+                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
+
+                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
+                  (
+                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+                     recentGAVersion
+                  ));
+            }
+
+            //[TestMethod]
+            //public void WithPreviewVersion_WhenRecentGAVersionIsSameAsPreviewVersion_ShouldAddDiagnosticsUsingGAVersion()
+            //{
+            //    DateTime currentVersionDate = DateTime.Today.AddDays(-3 * 365);
+            //    string currentVersion = ApiVersionHelper.Format(currentVersionDate, "-preview");
+
+            //    DateTime recentGAVersionDate = DateTime.Today.AddDays(-2 * 365);
+            //    string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
+
+            //    DateTime recentPreviewVersionDate = recentGAVersionDate;
+            //    string recentPreviewVersion = recentGAVersion + "-preview";
+
+            //    TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
+            //     (
+            //        $"Use recent API version for 'Whoever.whatever/whichever'. use stable asdfg'{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+            //        recentGAVersion
+            //     ));
+            //}
+
+            //[TestMethod]
+            //public void WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsNotRecent_ShouldAddDiagnosticsUsingRecentPreviewVersion()
+            //{
+            //    DateTime currentVersionDate = DateTime.Today.AddDays(-3*365);
+            //    string currentVersion = ApiVersionHelper.Format(currentVersionDate,"-preview");
+
+            //    DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2*365);
+            //    string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate,"-preview");
+
+            //    TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] {  }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
+            //        (
+            //           $"Use recent API version for 'Whoever.whatever/whichever'. use stable asdfg'{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentPreviewVersion}",
+            //           recentPreviewVersion
+            //        ));
+            //}
+
+            [TestMethod]
+            public void WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsRecent_ShouldNotAddDiagnostics()
+            {
+                DateTime currentVersionDate = DateTime.Today.AddDays(-2*365);
+                string currentVersion = ApiVersionHelper.Format(currentVersionDate,"-preview");
+
+                DateTime recentPreviewVersionDate = currentVersionDate;
+                string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate,"-preview");
+
+                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
+                    null);
+            }
         }
 
-        [TestMethod]
-        public void AddCodeFixIfGAVersionIsNotLatest_WithCurrentVersionMoreThanTwoYearsOldAndRecentApiVersionIsAvailable_ShouldAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddMonths(-5);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-
-            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                     recentGAVersion,
-                                                     currentVersion);
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfGAVersionIsNotLatest_WithCurrentAndRecentApiVersionsMoreThanTwoYearsOld_ShouldAddDiagnosticsToUseRecentApiVersion()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-4);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-3);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                     recentGAVersion,
-                                                     currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfGAVersionIsNotLatest_WhenCurrentAndRecentApiVersionsAreSameAndMoreThanTwoYearsOld_ShouldNotAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = currentVersionDate;
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                     recentGAVersion,
-                                                     currentVersion);
-
-            fix.Should().BeNull();
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenCurrentPreviewVersionIsLatest_ShouldNotAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-1);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-3);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            DateTime recentPreviewVersionDate = currentVersionDate;
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        recentGAVersion,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.Preview,
-                                                        currentVersion);
-
-            fix.Should().BeNull();
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenRecentPreviewVersionIsAvailable_ShouldAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-5);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-3);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        recentGAVersion,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.Preview,
-                                                        currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionSuffixes.Preview);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-5);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-2);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-3);
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        recentGAVersion,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.Preview,
-                                                        currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenRecentGAVersionIsSameAsPreviewVersion_ShouldAddDiagnosticsUsingGAVersion()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-2);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            string recentPreviewVersion = recentGAVersion;
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        recentGAVersion,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.Preview,
-                                                        currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsNotRecent_ShouldAddDiagnosticsUsingRecentPreviewVersion()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        null,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.Preview,
-                                                        currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionSuffixes.Preview);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithPreviewVersion_WhenGAVersionisNull_AndCurrentVersionIsRecent_ShouldNotAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-2);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentPreviewVersionDate = currentVersionDate;
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        null,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.Preview,
-                                                        currentVersion);
-
-            fix.Should().BeNull();
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithNonPreviewVersion_WhenGAVersionisNull_AndPreviewVersionIsRecent_ShouldAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-1);
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentNonPreviewApiVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
 
 
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        null,
-                                                        recentPreviewVersion,
-                                                        null,
-                                                        ApiVersionSuffixes.RC,
-                                                        currentVersion);
 
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentPreviewVersion + ApiVersionSuffixes.Preview);
-        }
 
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithNonPreviewVersion_WhenGAVersionisRecent_ShouldAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-1);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-3);
-            string recentNonPreviewVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        recentGAVersion,
-                                                        recentPreviewVersion,
-                                                        recentNonPreviewVersion,
-                                                        ApiVersionSuffixes.Alpha,
-                                                        currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentGAVersion);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithNonPreviewVersion_WhenPreviewAndGAVersionsAreNull_AndNonPreviewVersionIsNotRecent_ShouldAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddYears(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentNonPreviewVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        null,
-                                                        null,
-                                                        recentNonPreviewVersion,
-                                                        ApiVersionSuffixes.Alpha,
-                                                        currentVersion);
-
-            fix.Should().NotBeNull();
-            fix!.Value.Fix.Description.Should().Be("Use recent API version " + recentNonPreviewVersion + ApiVersionSuffixes.Alpha);
-        }
-
-        [TestMethod]
-        public void AddCodeFixIfNonGAVersionIsNotLatest_WithRecentNonPreviewVersion_ShouldNotAddDiagnostics()
-        {
-            DateTime currentVersionDate = DateTime.Today.AddMonths(-3);
-            string currentVersion = ApiVersionHelper.Format(currentVersionDate);
-
-            DateTime recentGAVersionDate = DateTime.Today.AddYears(-1);
-            string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
-
-            DateTime recentPreviewVersionDate = DateTime.Today.AddYears(-2);
-            string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
-
-            DateTime recentNonPreviewVersionDate = DateTime.Today.AddYears(-3);
-            string recentNonPreviewVersion = ApiVersionHelper.Format(recentNonPreviewVersionDate);
-
-            Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-            var fix = visitor.CreateCodeFixIfNonGAVersionIsNotLatest(new TextSpan(17, 47),
-                                                        recentGAVersion,
-                                                        recentPreviewVersion,
-                                                        recentNonPreviewVersion,
-                                                        ApiVersionSuffixes.Alpha,
-                                                        currentVersion);
-
-            fix.Should().BeNull();
-        }
 
         //asdfg
         //[DataRow("invalid-text")]

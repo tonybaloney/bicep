@@ -4,14 +4,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Bicep.Core.ApiVersion;
 using Bicep.Core.Features;
 using Bicep.Core.Resources;
 using Bicep.Core.Semantics;
 using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.TypeSystem.Az;
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.ApiVersion
 {
     public class ApiVersionProvider : IApiVersionProvider
     {
@@ -58,7 +57,7 @@ namespace Bicep.Core.ApiVersions
                 }
                 else
                 {
-                    throw new InvalidOperationException($"Invalid API version found: {resourceTypeReference.FormatType()}");
+                    throw new InvalidOperationException($"Invalid resource type and apiVersion found: {resourceTypeReference.FormatType()}");
                 }
             }
 

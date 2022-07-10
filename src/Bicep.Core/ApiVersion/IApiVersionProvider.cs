@@ -3,7 +3,7 @@
 
 using System.Collections.Generic;
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.ApiVersion
 {
     public interface IApiVersionProvider
     {

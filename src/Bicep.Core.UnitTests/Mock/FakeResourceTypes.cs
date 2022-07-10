@@ -10,14 +10,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 {
     internal static class FakeResourceTypes
     {
-        public static IEnumerable<ResourceTypeReference> GetFakeTypes(string fakeTypesAsText)
+        public static IEnumerable<ResourceTypeReference> GetFakeResourceTypeReferences(string fakeResourceTypesAndVersions)
         {
-            var lines = fakeTypesAsText
+            var types = fakeResourceTypesAndVersions
                 .ReplaceLineEndings("\n")
                 .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.RemoveEmptyEntries)
                 .Select(line => line.Trim())
                 .Where(s => !string.IsNullOrWhiteSpace(s));
-            foreach (string line in lines)
+            return GetFakeResourceTypeReferences(types);
+        }
+
+        public static IEnumerable<ResourceTypeReference> GetFakeResourceTypeReferences(IEnumerable<string> fakeResourceTypesAndVersions)
+        {
+            foreach (string line in fakeResourceTypesAndVersions)
             {
                 var resourcType = ResourceTypeReference.Parse(line);
                 yield return resourcType;

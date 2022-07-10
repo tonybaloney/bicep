@@ -3,7 +3,7 @@
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Bicep.Core.UnitTests.ApiVersion
+namespace Bicep.Core.UnitTests.ApiVersions
 {
     [TestClass]
     public class ApiVersionProviderTests

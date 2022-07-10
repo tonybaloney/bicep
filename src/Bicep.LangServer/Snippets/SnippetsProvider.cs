@@ -12,7 +12,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Bicep.Core;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.ApiVersion;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;

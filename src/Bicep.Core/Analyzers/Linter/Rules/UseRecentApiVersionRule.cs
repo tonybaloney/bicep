@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Bicep.Core.ApiVersion;
-using Bicep.Core.ApiVersions;
 using Bicep.Core.CodeAction;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
@@ -101,7 +100,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     GetReplacementSpan(resourceSymbol, apiVersion) is TextSpan replacementSpan)
                 {
                     string fullyQualifiedResourceType = resourceTypeReference.FormatType();
-                    var fix = CreatePossibleDiagnostic(replacementSpan, fullyQualifiedResourceType, apiVersion);
+                    var fix = CreateFixIfFails(replacementSpan, fullyQualifiedResourceType, apiVersion);
 
                     if (fix is not null)
                     {
@@ -112,61 +111,52 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 base.VisitResourceDeclarationSyntax(resourceDeclarationSyntax);
             }
 
-            public (TextSpan span, CodeFix fix)? CreatePossibleDiagnostic(TextSpan replacementSpan/*asdfg*/, string fullyQualifiedResourceType, string actualApiVersion)
+            public (TextSpan span, CodeFix fix)? CreateFixIfFails(TextSpan replacementSpan, string fullyQualifiedResourceType, string actualApiVersion)
             {
                 (string? currentApiDate, string? actualApiSuffix) = ApiVersionHelper.TryParse(actualApiVersion);
                 if (currentApiDate is null)
                 {//asdfg testpoint
-                    // The API version is not valid. Bicep will show an error, so we don't want to add anything else
+                    // The API version is not valid. Bicep will show an error, so we don't want to show anything else
                     return null;
                 }
 
-                var acceptableVersions = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, fullyQualifiedResourceType);
-                if (!acceptableVersions.Any())
+                var (allApiVersions, acceptableApiVersions) = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, fullyQualifiedResourceType);
+                if (!allApiVersions.Any())
                 {
-                    // Bicep will show a warning, so we don't want to add anything else
+                    // Resource type not recognized. Bicep will show a warning, so we don't want to show anything else
+                    return null;//asdfg testpoint
                 }
 
-                if (acceptableVersions.Contains(actualApiVersion)) //asdfg case insensitive
-                {
-                    // Nothing to do
+                Debug.Assert(acceptableApiVersions.Any(), $"There should always be at least one acceptable version for a valid resource type: {fullyQualifiedResourceType}");
+                if (acceptableApiVersions.Contains(actualApiVersion)) //asdfg case insensitive
+                {//asdfg testpoint
+                    // Passed - version is acceptable
+                    return null;
                 }
 
+                if (!allApiVersions.Contains(actualApiVersion))
+                {//asdfg testpoint
+                    // apiVersion for resource type not recognized. Bicep will show a warning, so we don't want to show anything else
+                    return null;
+                }
 
-                //asdfg
-                //string? recentGAVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedResourceType, ApiVersionSuffixes.GA);
-
-                ////asdfg
-                //if (string.IsNullOrEmpty(actualApiSuffix))
-                //{
-                //    return CreateCodeFixIfGAVersionIsNotLatest(span,
-                //                                    recentGAVersion,
-                //                                    currentApiDate);
-                //}
-                //else
-                //{
-                //    string? recentNonPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedResourceType, actualApiSuffix); //asdfg what are the rules here?
-                //    string? recentPreviewVersion = apiVersionProvider.GetRecentApiVersion(fullyQualifiedResourceType, ApiVersionSuffixes.Preview);
-
-                //    return CreateCodeFixIfNonGAVersionIsNotLatest(span,
-                //                                        recentGAVersion,
-                //                                        recentPreviewVersion,
-                //                                        recentNonPreviewVersion,
-                //                                        actualApiSuffix,
-                //                                        currentApiDate);
-                //}
-
-                return null;
+                int ageInDays = today.Subtract(ApiVersionHelper.ParseDate(actualApiVersion)).Days;
+                return CreateCodeFix(
+                    replacementSpan,
+                    fullyQualifiedResourceType,
+                    actualApiVersion,
+                    $"'{actualApiVersion}' is {ageInDays} days old, should be no more than {maxAllowedAgeInDays} days old.",
+                    acceptableApiVersions);
             }
 
             //asdfg handle when there's a newer non-preview version
-            public static string[] GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, string fullyQualifiedResourceType)
+            public static (string[] allApiVersions, string[] acceptableVersions) GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, string fullyQualifiedResourceType)
             {
-                var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(fullyQualifiedResourceType);
+                var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(fullyQualifiedResourceType).ToArray();
                 if (!allVersionsSorted.Any())
                 {
                     // The resource type is not recognized.
-                    return Array.Empty<string>();
+                    return (allVersionsSorted, Array.Empty<string>());
                 }
 
                 var oldestAcceptableDate = ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
@@ -206,37 +196,6 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     }
                 }
 
-                //// If there are no recent stable versions...
-                //if (!recentStableVersionsSorted.Any())
-                //{
-                //    // Allow the most recent, stable version even though it's old
-                //    string? mostRecentStableVersion = null; //asdfg test with mostRecentStableVersion stays null
-                //    if (stableVersionsSorted.Any())
-                //    {
-                //        mostRecentStableVersion = stableVersionsSorted.Last();
-                //        acceptableVersions.Add(mostRecentStableVersion);
-                //    }
-
-                //    // If there are also no recent preview resources, allow only those with the most recent date, but only if
-                //    // it is newer than the stable one, or if there are no stable ones.
-                //    // (Only allow the single most recent preview date - in the weird case where there are
-                //    // multiple preview versions with that same date, take all those with that date).
-                //    if (!recentPreviewVersionsSorted.Any())
-                //    {
-                //        var mostRecentPreviewDate = GetNewestDateInApiVersions(previewVersionsSorted);
-                //        if (mostRecentPreviewDate is not null)
-                //        {
-                //            var mostRecentPreviewIsNewerThanMostRecentStable = mostRecentStableVersion is null
-                //                || ApiVersionHelper.CompareApiVersionDates(mostRecentStableVersion, mostRecentPreviewDate) < 0;
-                //            if (mostRecentPreviewIsNewerThanMostRecentStable)
-                //            {
-                //                var previewVersionsWithMostRecentDate = previewVersionsSorted.Where(v => ApiVersionHelper.CompareApiVersionDates(v, mostRecentPreviewDate) == 0);
-                //                acceptableVersions.AddRange(previewVersionsWithMostRecentDate);
-                //            }
-                //        }
-                //    }
-                //}
-
                 acceptableVersions.Sort((v1, v2) => //asdfg test
                 {
                     // Sort by date descending, then stable first, then others alphabetically ascending
@@ -260,11 +219,8 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     return string.CompareOrdinal(v1, v2);
                 });
 
-                if (!acceptableVersions.Any())
-                {
-                    throw new InvalidOperationException($"Internal error: Didn't find any acceptable API versions for {fullyQualifiedResourceType}");
-                }
-                return acceptableVersions.ToArray();
+                Debug.Assert(acceptableVersions.Any(), $"Didn't find any acceptable API versions for {fullyQualifiedResourceType}");
+                return (allVersionsSorted, acceptableVersions.ToArray());
             }
 
             private TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
@@ -280,105 +236,14 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return null;
             }
 
-            // 1. Any GA version is allowed as long as it's not > 2 years old, even if there is a more recent GA version
-            // 2. If there is no GA apiVersion less than 2 years old, then take the latest one available from the cache of GA versions
-            public (TextSpan Span, CodeFix Fix)? CreateCodeFixIfGAVersionIsNotLatest(TextSpan span,
-                                                         string? recentGAVersion,
-                                                         string? currentApiVersion)
+            private (TextSpan Span, CodeFix Fix) CreateCodeFix(TextSpan span, string fullyQualifiedResourceType, string actualApiVersion, string reason, string[] acceptableApiVersions)
             {
-                if (currentApiVersion is null || recentGAVersion is null)
-                {
-                    return null;
-                }
+                var preferredVersion = acceptableApiVersions[0];
+                var codeReplacement = new CodeReplacement(span, preferredVersion);
 
-                DateTime currentApiVersionDate = DateTime.Parse(currentApiVersion);
+                var acceptableVersionsString = string.Join(", ", acceptableApiVersions);
 
-                if (today.Year - currentApiVersionDate.Year <= 2) //asdfg
-                {
-                    return null;
-                }
-
-                DateTime recentGAVersionDate = DateTime.Parse(recentGAVersion);
-
-                if (DateTime.Compare(recentGAVersionDate, currentApiVersionDate) > 0)
-                {
-                    return CreateCodeFix(span, recentGAVersion);
-                }
-
-                return null;
-            }
-
-            // A preview version is valid only if it is latest and there is no later GA version
-            // For non preview versions like alpha, beta, privatepreview and rc, order of preference is latest GA -> Preview -> Non Preview 
-            public (TextSpan Span, CodeFix Fix)? CreateCodeFixIfNonGAVersionIsNotLatest(TextSpan span,
-                                                            string? recentGAVersion,
-                                                            string? recentPreviewVersion,
-                                                            string? recentNonPreviewVersion,
-                                                            string prefix,
-                                                            string? currentVersion)
-            {
-                if (currentVersion is null)
-                {
-                    return null;
-                }
-
-                DateTime currentVersionDate = DateTime.Parse(currentVersion);
-
-                Dictionary<string, DateTime> prefixToRecentApiVersionMap = new Dictionary<string, DateTime>(); //asdfg misnamed
-
-                if (prefix.Equals(ApiVersionSuffixes.Preview))
-                {
-                    if (recentGAVersion is not null)
-                    {
-                        prefixToRecentApiVersionMap.Add(recentGAVersion, DateTime.Parse(recentGAVersion));
-                    }
-
-                    if (recentPreviewVersion is not null)
-                    {
-                        prefixToRecentApiVersionMap.Add(recentPreviewVersion + prefix, DateTime.Parse(recentPreviewVersion));
-                    }
-                }
-                else
-                {
-                    if (recentGAVersion is not null)
-                    {
-                        prefixToRecentApiVersionMap.Add(recentGAVersion, DateTime.Parse(recentGAVersion));
-                    }
-
-                    if (recentNonPreviewVersion is not null)
-                    {
-                        prefixToRecentApiVersionMap.Add(recentNonPreviewVersion + prefix, DateTime.Parse(recentNonPreviewVersion));
-                    }
-
-                    if (recentPreviewVersion is not null)
-                    {
-                        prefixToRecentApiVersionMap.Add(recentPreviewVersion + ApiVersionSuffixes.Preview, DateTime.Parse(recentPreviewVersion));
-                    }
-                }
-
-                if (prefixToRecentApiVersionMap.Any())
-                {
-                    var sortedPrefixToRecentApiVersionDateMap = prefixToRecentApiVersionMap.OrderByDescending(x => x.Value).ToDictionary(x => x.Key, x => x.Value);
-
-                    KeyValuePair<string, DateTime> kvp = sortedPrefixToRecentApiVersionDateMap.First();
-
-                    if (DateTime.Compare(kvp.Value, currentVersionDate) >= 0)
-                    {//asdfg?
-                        Trace.WriteLine("Preview version");
-                        Trace.WriteLine("Date1: " + kvp.Value);
-                        Trace.WriteLine("Date2: " + currentVersionDate);
-
-                        return CreateCodeFix(span, kvp.Key);
-                    }
-                }
-
-                return null;
-            }
-
-            private (TextSpan Span, CodeFix Fix) CreateCodeFix(TextSpan span, string apiVersion)
-            {
-                var codeReplacement = new CodeReplacement(span, apiVersion);
-                string description = string.Format(CoreResources.UseRecentApiVersionRuleMessageFormat, apiVersion);
+                string description = string.Format(CoreResources.UseRecentApiVersionRuleMessageFormat, fullyQualifiedResourceType, reason, acceptableVersionsString);
                 var fix = new CodeFix(description, true, CodeFixKind.QuickFix, codeReplacement);
 
                 return (span, fix);
@@ -387,7 +252,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             // Returns just the date string, not an entire apiVersion
             private static string? GetNewestDateInApiVersions(string[] apiVersions) //asdfg test
             {
-                // We're safe to use Max on the apiVersion date strings since they're in the form yyyy-mm-dd, will give most recently since they're sorted ascending
+                // We're safe to use Max on the apiVersion date strings since they're in the form yyyy-MM-dd, will give most recently since they're sorted ascending
                 return apiVersions.Max(v => ApiVersionHelper.TryParse(v).date);
             }
 
@@ -405,12 +270,12 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             }
 
             // Returns just the date string, not an entire apiVersion
-            private static IEnumerable<string> FilterApiVersionsNewerThanDate(string[] apiVersions, string date) 
+            private static IEnumerable<string> FilterApiVersionsNewerThanDate(string[] apiVersions, string date)
             {
                 return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) > 0);
             }
 
-            private static IEnumerable<string> FilterApiVersionsNewerOrEqualToDate(string[] apiVersions, string date) 
+            private static IEnumerable<string> FilterApiVersionsNewerOrEqualToDate(string[] apiVersions, string date)
             {
                 return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) >= 0);
             }
