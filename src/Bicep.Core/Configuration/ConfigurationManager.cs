@@ -16,7 +16,7 @@ namespace Bicep.Core.Configuration
     {
         public const string BuiltInConfigurationResourceName = "Bicep.Core.Configuration.bicepconfig.json";
 
-        private static readonly JsonElement BuiltInConfigurationElement = GetBuildInConfigurationElement();
+        private static readonly JsonElement BuiltInConfigurationElement = GetBuiltInConfigurationElement();
 
         private static readonly Lazy<RootConfiguration> BuiltInConfigurationLazy =
             new(() => RootConfiguration.Bind(BuiltInConfigurationElement));
@@ -61,13 +61,13 @@ namespace Bicep.Core.Configuration
             return GetBuiltInConfiguration();
         }
 
-        private static JsonElement GetBuildInConfigurationElement()
+        private static JsonElement GetBuiltInConfigurationElement()
         {
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(BuiltInConfigurationResourceName);
 
             if (stream is null)
             {
-                throw new InvalidOperationException("Could not get manifest resource stream for build-in configuration.");
+                throw new InvalidOperationException("Could not get manifest resource stream for built-in configuration.");
             }
 
             return JsonElementFactory.CreateElement(stream);
