@@ -1365,7 +1365,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         [TestMethod]
-        public void ExtensionResources_SubscriptionRole()
+        public void ExtensionResources_SubscriptionRole_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
             CompileAndTestWithFakeDateAndTypes(@"
@@ -1396,7 +1396,44 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                       }
                     }",
                     ResourceScope.Subscription,
-                    FakeResourceTypes.ResourceScopeTypes, //asdfg should fail
+                    FakeResourceTypes.SubscriptionScopeTypes,
+                    "2422-07-04"
+                );
+        }
+
+        [TestMethod]
+        public void ExtensionResources_SubscriptionRole_Fail()
+        {
+            // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            CompileAndTestWithFakeDateAndTypes(@"
+                    targetScope = 'subscription'
+
+                    @description('The principal to assign the role to')
+                    param principalId string
+
+                    @allowed([
+                      'Owner'
+                      'Contributor'
+                      'Reader'
+                    ])
+                    @description('Built-in role to assign')
+                    param builtInRoleType string
+
+                    var role = {
+                      Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                      Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                      Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                    }
+
+                    resource roleAssignSub 'fake.Authorization/roleAssignments@2417-10-01-preview' = {
+                      name: guid(subscription().id, principalId, role[builtInRoleType])
+                      properties: {
+                        roleDefinitionId: role[builtInRoleType]
+                        principalId: principalId
+                      }
+                    }",
+                    ResourceScope.Subscription,
+                    FakeResourceTypes.SubscriptionScopeTypes,
                     "2422-07-04"
                 );
         }
