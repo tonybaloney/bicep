@@ -1434,7 +1434,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     }",
                     ResourceScope.Subscription,
                     FakeResourceTypes.SubscriptionScopeTypes,
-                    "2422-07-04"
+                    "2422-07-04",
+                    "[20] Use recent API version for 'fake.Authorization/roleAssignments'. '2417-10-01-preview' is 1737 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2417-09-01"
                 );
         }
 
