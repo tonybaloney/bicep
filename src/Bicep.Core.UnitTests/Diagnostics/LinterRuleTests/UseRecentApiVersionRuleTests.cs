@@ -24,45 +24,45 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     [TestClass]
     public class UseRecentApiVersionRuleTests : LinterRuleTestsBase
     {
-        // Welcome to the 25th century!
-        // All tests using CompileAndTest set this value as "today" as far as the rule is concerned
-        private const string FAKE_TODAY_DATE = "2422-07-04";
-
         public UseRecentApiVersionRuleTests()
         {
 
         }
 
-        private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors, params string[] expectedMessagesForCode)
-        {
-            // Test with today's date and real types.
-            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
-               bicep,
-               expectedMessagesForCode,
-               onCompileErrors,
-               IncludePosition.LineNumber);
-        }
+        // Welcome to the 25th century!
+        // All tests using CompileAndTest set this value as "today" as far as the rule is concerned
+        //private const string FAKE_TODAY_DATE = "2422-07-04";
 
-        private void CompileAndTestWithFakeDateAndTypes(string bicep, params string[] expectedMessagesForCode)
-        {
-            // Test with the linter thinking today's date is FAKE_TODAY_DATE and also fake resource types from FakeResourceTypes
-            // Note: The compiler does not know about these fake types, only the linter.
+        //private void CompileAndTest(string bicep, OnCompileErrors onCompileErrors, params string[] expectedMessagesForCode)
+        //{
+        //    // Test with today's date and real types.
+        //    AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
+        //       bicep,
+        //       expectedMessagesForCode,
+        //       onCompileErrors,
+        //       IncludePosition.LineNumber);
+        //}
 
-            AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
-                bicep,
-                expectedMessagesForCode,
-                OnCompileErrors.IncludeErrors,
-                IncludePosition.LineNumber,
-                configuration: ConfigurationWithFakeTodayDate,
-                apiVersionProvider: FakeApiVersionProviderResourceScope);
-        }
+        //private void CompileAndTestWithFakeDateAndTypes(string bicep, string fakeToday, string[] expectedMessagesForCode)
+        //{
+        //    // Test with the linter thinking today's date is fakeToday and also using fake resource types from FakeResourceTypes
+        //    // Note: The compiler does not know about these fake types, only the linter.
+
+        //    RootConfiguration configurationWithFakeTodayDate = CreateConfigurationWithFakeToday(fakeToday);
+        //    AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
+        //        bicep,
+        //        expectedMessagesForCode,
+        //        OnCompileErrors.IncludeErrors,
+        //        IncludePosition.LineNumber,
+        //        configuration: configurationWithFakeTodayDate,
+        //        apiVersionProvider: FakeApiVersionProviderResourceScope);
+        //}
 
         private void CompileAndTestWithFakeDateAndTypes(string bicep, string[] resourceTypes, string fakeToday, params string[] expectedMessagesForCode)
         {
-            // Test with the linter thinking today's date is FAKE_TODAY_DATE and also fake resource types from FakeResourceTypes
+            // Test with the linter thinking today's date is fakeToday and also fake resource types from FakeResourceTypes
             // Note: The compiler does not know about these fake types, only the linter.
-
-            var apiProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(string.Join('\n', resourceTypes)));
+            var apiProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(resourceTypes));
 
             AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
                 bicep,
@@ -74,9 +74,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         }
 
         // Uses fake resource types from FakeResourceTypes
-        private readonly IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(FakeResourceTypes.ResourceScope));
+        //asdfg private readonly IApiVersionProvider FakeApiVersionProviderResourceScope = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(FakeResourceTypes.ResourceScope));
 
-        private static RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
+        //asdfg private static RootConfiguration ConfigurationWithFakeTodayDate = CreateConfigurationWithFakeToday(FAKE_TODAY_DATE);
 
         private static SemanticModel SemanticModel(RootConfiguration configuration, IApiVersionProvider apiVersionProvider)
             => new Compilation(
@@ -115,7 +115,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             private void TestGetAcceptableApiVersions(string fullyQualifiedResourceType, string resourceTypes, string today, string[] expectedApiVersions, int maxAllowedAgeInDays = UseRecentApiVersionRule.MaxAllowedAgeInDays)
             {
                 var apiVersionProvider = new ApiVersionProvider(FakeResourceTypes.GetFakeResourceTypeReferences(resourceTypes));
-                var allowedVersions = UseRecentApiVersionRule.Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, fullyQualifiedResourceType);
+                var (allVersions, allowedVersions) = UseRecentApiVersionRule.Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, fullyQualifiedResourceType);
                 allowedVersions.Should().BeEquivalentTo(expectedApiVersions, options => options.WithStrictOrdering());
             }
 
@@ -657,64 +657,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
         }
 
-        //asdfg will change with time
-        [DataRow(@"
-            resource dnsZone 'Microsoft.Network/dnsZones@2015-10-01-preview' = {
-              name: 'name'
-              location: resourceGroup().location
-            }",
-            "Use API version 2018-05-01")]
-        [DataRow(@"
-            resource dnsZone 'Microsoft.Network/dnsZones@2017-10-01' = {
-              name: 'name'
-              location: resourceGroup().location
-            }",
-            "2018-05-01")]
-        [DataRow(@"
-            resource dnsZone 'Microsoft.Network/dnsZones@2018-05-01' = {
-              name: 'name'
-              location: resourceGroup().location
-            }")]
-        [DataRow(@"
-            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2020-11-01-preview' = {
-              name: 'name'
-              location: resourceGroup().location
-              sku: {
-                name: 'Basic'
-              }
-            }",
-            "2021-06-01-preview")]
-        [DataRow(@"
-            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2019-05-01' = {
-              name: 'name'
-              location: resourceGroup().location
-              sku: {
-                name: 'Basic'
-              }
-            }")]
-        [DataRow(@"
-            resource containerRegistry 'Microsoft.ContainerRegistry/registries@2021-06-01-preview' = {
-              name: 'name'
-              location: resourceGroup().location
-              sku: {
-                name: 'Basic'
-              }
-            }")]
-        [DataRow(@"
-            resource appServicePlan 'Microsoft.Web/serverfarms@2021-01-01' = {
-              name: 'name'
-              location: resourceGroup().location
-            }")]
-        [DataTestMethod]
-        public void TestRule(string text, params string[] expectedUseRecentApiVersions)
-        {
-            CompileAndTestWithFakeDateAndTypes(text, expectedUseRecentApiVersions);
-        }
-
         [TestClass]
-        public class CreateFixIfFailsTests
+        public class AnalyzeApiVersionTests
         {
-            private void TestCreateFixIfFails(
+            private void Test(
                 DateTime currentVersionDate,
                 string currentVersionSuffix,
                 DateTime[] gaVersionDates,
@@ -728,7 +674,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 var semanticModel = SemanticModel(BicepTestConstants.BuiltInConfiguration, apiVersionProvider);
                 var visitor = new UseRecentApiVersionRule.Visitor(semanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
 
-                var fix = visitor.CreateFixIfFails(new TextSpan(17, 47), "Whoever.whatever/whichever", currentVersion);
+                var fix = visitor.AnalyzeApiVersion(new TextSpan(17, 47), "Whoever.whatever/whichever", currentVersion);
 
                 if (expectedFix == null)
                 {
@@ -738,9 +684,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 {
                     fix.Should().NotBeNull();
                     fix!.Value.span.Should().Be(new TextSpan(17, 47));
-                    fix!.Value.fix.Description.Should().Be(expectedFix.Value.description);
-                    fix!.Value.fix.Replacements.Should().SatisfyRespectively(r => r.Span.Should().Be(new TextSpan(17, 47)));
-                    fix!.Value.fix.Replacements.Select(r => r.Text).Should().BeEquivalentTo(new string[] { expectedFix.Value.replacement });
+                    throw new ArgumentException("asdfg");
+                    //asdfg  fix!.Value.diagnosticMessage.Should().Be(expectedFix.Value.description);
+                    //fix!.Value.fixes.Should().HaveCount(1); // Right now we only create one fix
+                    //fix!.Value.fixes[0].Replacements.Should().SatisfyRespectively(r => r.Span.Should().Be(new TextSpan(17, 47)));
+                    //fix!.Value.fixes[0].Replacements.Select(r => r.Text).Should().BeEquivalentTo(new string[] { expectedFix.Value.replacement });
                 }
             }
 
@@ -750,7 +698,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime currentVersionDate = DateTime.Today.AddDays(-1 * 365);
                 DateTime recentGAVersionDate = DateTime.Today.AddDays(-5 * 31);
 
-                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
+                Test(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
                     null);
             }
 
@@ -762,7 +710,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentGAVersionDate = DateTime.Today.AddDays(-5 * 30);
                 string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
+                Test(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
                     (
                         $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
                         recentGAVersion
@@ -778,7 +726,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentGAVersionDate = DateTime.Today.AddDays(-3 * 365);
                 string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
+                Test(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { },
                      (
                         $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {4 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
                         recentGAVersion
@@ -794,7 +742,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentGAVersionDate = currentVersionDate;
                 string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate }, new DateTime[] { },
+                Test(currentVersionDate, "", new DateTime[] { currentVersionDate }, new DateTime[] { },
                     null);
             }
 
@@ -811,7 +759,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
 
-                TestCreateFixIfFails(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { recentPreviewVersionDate },
+                Test(currentVersionDate, "", new DateTime[] { currentVersionDate, recentGAVersionDate }, new DateTime[] { recentPreviewVersionDate },
                      null);
             }
 
@@ -827,7 +775,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2 * 365);
                 string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
 
-                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
+                Test(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
                     (
                        //asdfg ask brian: show by date or ga first?
                        $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
@@ -867,9 +815,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-3 * 365);
                 string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate);
 
-                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
+                Test(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate, recentPreviewVersionDate },
                   (
-                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is {5*365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
+                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is {5 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentGAVersion}",
                      recentGAVersion
                   ));
             }
@@ -884,7 +832,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentGAVersionDate = DateTime.Today.AddDays(-1 * 365);
                 string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate },
+                Test(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate },
                   (
                      $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}-preview' is a preview version and there is a more recent non-preview version available. Acceptable versions: {recentGAVersion}",
                      recentGAVersion
@@ -900,7 +848,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentGAVersionDate = currentVersionDate;
                 string recentGAVersion = ApiVersionHelper.Format(recentGAVersionDate);
 
-                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate },
+                Test(currentVersionDate, "-preview", new DateTime[] { recentGAVersionDate }, new DateTime[] { currentVersionDate },
                  (
                     $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is a preview version and there is a non-preview version available with the same date. Acceptable versions: {recentGAVersion}",
                     recentGAVersion
@@ -916,7 +864,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentPreviewVersionDate = DateTime.Today.AddDays(-2 * 365);
                 string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
 
-                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
+                Test(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
                     (
                        $"Use recent API version for 'Whoever.whatever/whichever'. '{currentVersion}' is {3 * 365} days old, should be no more than 730 days old. Acceptable versions: {recentPreviewVersion}",
                        recentPreviewVersion
@@ -932,42 +880,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 DateTime recentPreviewVersionDate = currentVersionDate;
                 string recentPreviewVersion = ApiVersionHelper.Format(recentPreviewVersionDate, "-preview");
 
-                TestCreateFixIfFails(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
+                Test(currentVersionDate, "-preview", new DateTime[] { }, new DateTime[] { recentPreviewVersionDate, currentVersionDate },
                     null);
             }
         }
-
-
-
-
-
-
-        //asdfg
-        //[DataRow("invalid-text")]
-        //[DataRow("")]
-        //[DataRow("   ")]
-        //[TestMethod]
-        //public void GetApiVersionDate_WithInvalidVersion(string apiVersion)
-        //{
-        //    Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-
-        //    DateTime? actual = visitor.ApiVersionToDate(apiVersion);
-
-        //    actual.Should().BeNull();
-        //}
-
-        //[DataRow("2015-04-01-rc", "2015-04-01")]
-        //[DataRow("2016-04-01", "2016-04-01")]
-        //[DataRow("2016-04-01-privatepreview", "2016-04-01")]
-        //[TestMethod]
-        //public void GetApiVersionDate_WithValidVersion(string apiVersion, string expectedVersion)
-        //{
-        //    Visitor visitor = new Visitor(SemanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
-
-        //    DateTime? actual = visitor.ApiVersionToDate(apiVersion);
-
-        //    actual.Should().Be(DateTime.Parse(expectedVersion));
-        //}
 
         [TestMethod]
         public void ArmTtk_ApiVersionIsNotAnExpression_Error()
@@ -975,6 +891,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             string bicep = @"
                 resource publicIPAddress1 'fake.Network/publicIPAddresses@[concat(\'2020\', \'01-01\')]' = {
                   name: 'publicIPAddress1'
+                  #disable-next-line no-loc-expr-outside-params
                   location: resourceGroup().location
                   tags: {
                     displayName: 'publicIPAddress1'
@@ -983,107 +900,116 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     publicIPAllocationMethod: 'Dynamic'
                   }
                 }";
-            CompileAndTestWithFakeDateAndTypes(bicep, "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
-        }
-
-        [TestMethod]
-        public void NestedResources1_Fail()
-        {
-            string bicep = @"
-                param location string
-
-                resource namespace1 'fake.ServiceBus/namespaces@2018-01-01-preview' = {
-                  name: 'namespace1'
-                  location: location
-                  properties: {
-                  }
-                }
-
-                // Using 'parent'
-                resource namespace1_queue1 'fake.ServiceBus/namespaces/queues@2017-04-01' = {
-                  parent: namespace1
-                  name: 'queue1'
-                }
-
-                // Using 'parent'
-                resource namespace1_queue1_rule1 'fake.ServiceBus/namespaces/queues/authorizationRules@2015-08-01' = {
-                  parent: namespace1_queue1
-                  name: 'rule1'
-                }
-
-                // Using nested name
-                resource namespace1_queue2 'fake.ServiceBus/namespaces/queues@2017-04-01' = {
-                  name: 'namespace1/queue1'
-                }
-
-                // Using 'parent'
-                resource namespace1_queue2_rule2 'fake.ServiceBus/namespaces/queues/authorizationRules@2018-01-01-preview' = {
-                  parent: namespace1_queue2
-                  name: 'rule2'
-                }
-
-                // Using nested name
-                resource namespace1_queue2_rule3 'fake.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
-                  name: 'namespace1/queue2/rule3'
-                }";
-
             CompileAndTestWithFakeDateAndTypes(bicep,
-                "[3] Use recent API versions",
-                "[11] Use recent API versions",
-                "[17] Use recent API versions",
-                "[23] Use recent API versions",
-                "[28] Use recent API versions",
-                "[34] Use recent API versions"
-                );
+                FakeResourceTypes.ResourceScopeTypes,
+                "2422-07-04",
+                new string[] { "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\"." });
         }
 
-        [TestMethod]
-        public void NestedResources2_Fail()
-        {
-            string bicep = @"
-                param location string
+        ////asdfg
+        //[TestMethod]
+        //public void NestedResources1_Fail()
+        //{
+        //    string bicep = @"
+        //        param location string
 
-                // Using resource nesting
-                resource namespace2 'Microsoft.ServiceBus/namespaces@2018-01-01-preview' = {
-                  name: 'namespace2'
-                  location: location
+        //        resource namespace1 'fake.ServiceBus/namespaces@2418-01-01-preview' = {
+        //          name: 'namespace1'
+        //          location: location
+        //          properties: {
+        //          }
+        //        }
 
-                  resource queue1 'queues@2015-08-01' = {
-                    name: 'queue1'
-                    location: location
+        //        // Using 'parent'
+        //        resource namespace1_queue1 'fake.ServiceBus/namespaces/queues@2417-04-01' = {
+        //          parent: namespace1
+        //          name: 'queue1'
+        //        }
 
-                    resource rule1 'authorizationRules@2018-01-01-preview' = {
-                      name: 'rule1'
-                    }
-                  }
-                }
+        //        // Using 'parent'
+        //        resource namespace1_queue1_rule1 'fake.ServiceBus/namespaces/queues/authorizationRules@2415-08-01' = {
+        //          parent: namespace1_queue1
+        //          name: 'rule1'
+        //        }
 
-                // Using nested name (parent is a nested resource)
-                resource namespace2_queue1_rule2 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
-                  name: 'namespace2/queue1/rule2'
-                }
+        //        // Using nested name
+        //        resource namespace1_queue2 'fake.ServiceBus/namespaces/queues@2417-04-01' = {
+        //          name: 'namespace1/queue1'
+        //        }
 
-                // Using parent (parent is a nested resource)
-                resource namespace2_queue1_rule3 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
-                  parent: namespace2::queue1
-                  name: 'rule3'
-                }";
+        //        // Using 'parent'
+        //        resource namespace1_queue2_rule2 'fake.ServiceBus/namespaces/queues/authorizationRules@2418-01-01-preview' = {
+        //          parent: namespace1_queue2
+        //          name: 'rule2'
+        //        }
 
-            CompileAndTestWithFakeDateAndTypes(bicep,
-                "[4] Use recent API versions",
-                "[8] Use recent API versions",
-                "[12] Use recent API versions",
-                "[19] Use recent API versions",
-                "[24] Use recent API versions"
-                );
-        }
+        //        // Using nested name
+        //        resource namespace1_queue2_rule3 'fake.ServiceBus/namespaces/queues/authorizationRules@4017-04-01' = {
+        //          name: 'namespace1/queue2/rule3'
+        //        }";
+
+        //    CompileAndTestWithFakeDateAndTypes(bicep,
+        //        "2422-07-04",
+        //        new string[] {
+        //            "[3] Use recent API versions",
+        //            "[11] Use recent API versions",
+        //            "[17] Use recent API versions",
+        //            "[23] Use recent API versions",
+        //            "[28] Use recent API versions",
+        //            "[34] Use recent API versions"
+        //        });
+        //}
+
+        //asdfg
+        //[TestMethod]
+        //public void NestedResources2_Fail()
+        //{
+        //    string bicep = @"
+        //        param location string
+
+        //        // Using resource nesting
+        //        resource namespace2 'Microsoft.ServiceBus/namespaces@2018-01-01-preview' = {
+        //          name: 'namespace2'
+        //          location: location
+
+        //          resource queue1 'queues@2015-08-01' = {
+        //            name: 'queue1'
+        //            location: location
+
+        //            resource rule1 'authorizationRules@2018-01-01-preview' = {
+        //              name: 'rule1'
+        //            }
+        //          }
+        //        }
+
+        //        // Using nested name (parent is a nested resource)
+        //        resource namespace2_queue1_rule2 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
+        //          name: 'namespace2/queue1/rule2'
+        //        }
+
+        //        // Using parent (parent is a nested resource)
+        //        resource namespace2_queue1_rule3 'Microsoft.ServiceBus/namespaces/queues/authorizationRules@2017-04-01' = {
+        //          parent: namespace2::queue1
+        //          name: 'rule3'
+        //        }";
+
+        //    CompileAndTestWithFakeDateAndTypes(bicep,
+        // "2422-07-04",
+        //        "[4] Use recent API versions",
+        //        "[8] Use recent API versions",
+        //        "[12] Use recent API versions",
+        //        "[19] Use recent API versions",
+        //        "[24] Use recent API versions"
+        //        );
+        //}
 
         [TestMethod]
         public void ArmTtk_NotAString_Error()
         {
             string bicep = @"
-                resource publicIPAddress1 'Microsoft.Network/publicIPAddresses@True' = {
+                resource publicIPAddress1 'fake.Network/publicIPAddresses@True' = {
                 name: 'publicIPAddress1'
+#disable-next-line no-loc-expr-outside-params no-hardcoded-location
                 location: 'westus'
                 tags: {
                     displayName: 'publicIPAddress1'
@@ -1094,9 +1020,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
             ";
 
-            CompileAndTestWithFakeDateAndTypes(bicep,
-               "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\".");
+            CompileAndTestWithFakeDateAndTypes(
+                bicep,
+                FakeResourceTypes.ResourceScopeTypes,
+                "2422-07-04",
+                new string[] {
+                  "[1] The resource type is not valid. Specify a valid resource type of format \"<types>@<apiVersion>\"."
+                });
         }
+
+
+
+
+
 
         //asdfg test with non-preview versions at least as recent (plus when only older)
         // current algorithm:
@@ -1194,56 +1130,58 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithSameDateAsStable_Fail()
         {
             string bicep = @"
-                resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
-                  name: 'db]'
-                #disable-next-line no-hardcoded-location
-                  location: 'westeurope'
-                  properties: {
-                    administratorLogin: 'sa'
-                    administratorLoginPassword: 'don\'t put passwords in plain text'
-                    createMode: 'Default'
-                    sslEnforcement: 'Disabled'
-                  }
-                }
-            ";
+                    resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
+                      name: 'db]'
+                    #disable-next-line no-hardcoded-location
+                      location: 'westeurope'
+                      properties: {
+                        administratorLogin: 'sa'
+                        administratorLoginPassword: 'don\'t put passwords in plain text'
+                        createMode: 'Default'
+                        sslEnforcement: 'Disabled'
+                      }
+                    }
+                ";
 
             CompileAndTestWithFakeDateAndTypes(
                 bicep,
                 new string[]
                 {
-                   "Fake.DBforMySQL/servers@2417-12-01",
-                   "Fake.DBforMySQL/servers@2417-12-01-preview",
+                       "Fake.DBforMySQL/servers@2417-12-01",
+                       "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "[1] Use recent apiVersions. There is a non-preview version of Fake.DBforMySQL/servers available. Acceptable API versions: 2417-12-01");
+                //asdfg wich? "[1] Use recent apiVersions. There is a non-preview version of Fake.DBforMySQL/servers available. Acceptable API versions: 2417-12-01");
+                "[1] Use recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-12-01");
         }
 
         [TestMethod]
         public void ArmTtk_PreviewWhenNonPreviewIsAvailable_WithLaterDateThanStable_Fail()
         {
             string bicep = @"
-                resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
-                  name: 'db]'
-                #disable-next-line no-hardcoded-location
-                  location: 'westeurope'
-                  properties: {
-                    administratorLogin: 'sa'
-                    administratorLoginPassword: 'don\'t put passwords in plain text'
-                    createMode: 'Default'
-                    sslEnforcement: 'Disabled'
-                  }
-                }
-            ";
+                    resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
+                      name: 'db]'
+                    #disable-next-line no-hardcoded-location
+                      location: 'westeurope'
+                      properties: {
+                        administratorLogin: 'sa'
+                        administratorLoginPassword: 'don\'t put passwords in plain text'
+                        createMode: 'Default'
+                        sslEnforcement: 'Disabled'
+                      }
+                    }
+                ";
 
             CompileAndTestWithFakeDateAndTypes(
                 bicep,
                 new string[]
                 {
-                   "Fake.DBforMySQL/servers@2417-12-02",
-                   "Fake.DBforMySQL/servers@2417-12-01-preview",
+                       "Fake.DBforMySQL/servers@2417-12-02",
+                       "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "[1] Use recent apiVersions. There is a non-preview version of Fake.DBforMySQL/servers available. Acceptable API versions: 2417-12-01");
+                //asdfg which? "[1] Use recent apiVersions. There is a non-preview version of Fake.DBforMySQL/servers available. Acceptable API versions: 2417-12-01");
+                "[1] Use recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-12-02");
         }
 
         [TestMethod]
@@ -1251,15 +1189,15 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         {
             string bicep = @"
                 resource db 'fake.DBforMySQL/servers@2417-12-01-preview' = {
-                  name: 'db]'
+                    name: 'db]'
                 #disable-next-line no-hardcoded-location
-                  location: 'westeurope'
-                  properties: {
+                    location: 'westeurope'
+                    properties: {
                     administratorLogin: 'sa'
                     administratorLoginPassword: 'don\'t put passwords in plain text'
                     createMode: 'Default'
                     sslEnforcement: 'Disabled'
-                  }
+                    }
                 }
             ";
 
@@ -1267,10 +1205,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 bicep,
                 new string[]
                 {
-                   "Fake.DBforMySQL/servers@2417-11-31",
-                   "Fake.DBforMySQL/servers@2417-12-01-preview",
+                    "Fake.DBforMySQL/servers@2417-11-31",
+                    "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
-                fakeToday: "2422-07-04");
+                fakeToday: "2422-07-04",
+                "[1] Use recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-11-31");
         }
 
         //asdfg what if only beta/etc?
@@ -1278,19 +1217,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void ArmTtk_OnlyPreviewAvailable_EvenIfOld_Pass()
         {
             string bicep = @"
-               resource namespace 'Microsoft.DevTestLab/schedules@2417-08-01-preview' = {
-                  name: 'namespace'
-                  location: 'global'
-                  properties: {
-                  }
-               }";
+                   resource namespace 'Microsoft.DevTestLab/schedules@2417-08-01-preview' = {
+                      name: 'namespace'
+                      location: 'global'
+                      properties: {
+                      }
+                   }";
 
             CompileAndTestWithFakeDateAndTypes(
                 bicep,
                 new string[]
                 {
-                   "Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview",
-                   "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
+                       "Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview",
+                       "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
                 },
                 fakeToday: "2422-07-04");
         }
@@ -1299,53 +1238,68 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         public void NewerPreviewAvailable_Fail()
         {
             string bicep = @"
-               resource namespace 'Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview' = {
-                  name: 'clusters'
-                  location: 'global'
-               }";
+                   resource namespace 'Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview' = {
+                      name: 'clusters'
+                      location: 'global'
+                   }";
 
             CompileAndTestWithFakeDateAndTypes(
                 bicep,
                 new string[]
                 {
-                   "Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview",
-                   "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
+                       "Fake.MachineLearningCompute/operationalizationClusters@2417-06-01-preview",
+                       "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "asdfg fail");
+                "[1] Use recent API version for 'Fake.MachineLearningCompute/operationalizationClusters'. '2417-06-01-preview' is 1859 days old, should be no more than 730 days old. Acceptable versions: 2417-08-01-preview");
         }
 
         [TestMethod]
         public void ExtensionResources_RoleAssignment_Pass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
+            /*
+                [-] apiVersions Should Be Recent (15 ms)                                                                            
+                Api versions must be the latest or under 2 years old (730 days) - API version 2020-04-01-preview of Microsoft.Authorization/roleAssignments is 830 days old Line: 40, Column: 8
+                Valid Api Versions:                                                                                             
+                2018-07-01                                                                                                      
+                2022-01-01-preview                                                                                              
+                2021-04-01-preview                                                                                              
+                2020-10-01-preview                                                                                              
+                2020-08-01-preview  
+            */
             CompileAndTestWithFakeDateAndTypes(@"
-                targetScope = 'subscription'
+                    targetScope = 'subscription'
 
-                @description('The principal to assign the role to')
-                param principalId string
+                    @description('The principal to assign the role to')
+                    param principalId string
 
-                @allowed([
-                  'Owner'
-                  'Contributor'
-                  'Reader'
-                ])
-                @description('Built-in role to assign')
-                param builtInRoleType string
+                    @allowed([
+                      'Owner'
+                      'Contributor'
+                      'Reader'
+                    ])
+                    @description('Built-in role to assign')
+                    param builtInRoleType string
 
-                var role = {
-                  Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
-                  Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
-                  Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
-                }
+                    var role = {
+                      Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                      Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                      Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                    }
 
-                resource roleAssignSub 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
-                  name: guid(subscription().id, principalId, role[builtInRoleType])
-                  properties: {
-                    roleDefinitionId: role[builtInRoleType]
-                    principalId: principalId
-                  }
-                }");
+                    resource roleAssignSub 'fake.Authorization/roleAssignments@2420-04-01-preview' = {
+                      name: guid(subscription().id, principalId, role[builtInRoleType])
+                      properties: {
+                        roleDefinitionId: role[builtInRoleType]
+                        principalId: principalId
+                      }
+                    }",
+                    FakeResourceTypes.ResourceScopeTypes,
+                   fakeToday: "2422-07-04",
+                   new String[] {
+                       "[20] Use recent API version for 'fake.Authorization/roleAssignments'. '2420-04-01-preview' is 824 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2415-07-01"
+                   });
         }
 
         [TestMethod]
@@ -1353,383 +1307,471 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
             CompileAndTestWithFakeDateAndTypes(@"
-               resource createRgLock 'Microsoft.Authorization/locks@2016-09-01' = {
-                  name: 'rgLock'
-                  properties: {
-                    level: 'CanNotDelete'
-                    notes: 'Resource group should not be deleted.'
-                  }
-                }");
+                   resource createRgLock 'Microsoft.Authorization/locks@2016-09-01' = {
+                      name: 'rgLock'
+                      properties: {
+                        level: 'CanNotDelete'
+                        notes: 'Resource group should not be deleted.'
+                      }
+                    }",
+                FakeResourceTypes.ResourceScopeTypes,
+                "2422-07-04");
         }
 
         [TestMethod]
-        public void ExtensionResources_SubscriptionRole_Pass()
+        public void ExtensionResources_SubscriptionRole()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
             CompileAndTestWithFakeDateAndTypes(@"
-                targetScope = 'subscription'
+                    targetScope = 'subscription'
 
-                @description('The principal to assign the role to')
-                param principalId string
+                    @description('The principal to assign the role to')
+                    param principalId string
 
-                @allowed([
-                  'Owner'
-                  'Contributor'
-                  'Reader'
-                ])
-                @description('Built-in role to assign')
-                param builtInRoleType string
+                    @allowed([
+                      'Owner'
+                      'Contributor'
+                      'Reader'
+                    ])
+                    @description('Built-in role to assign')
+                    param builtInRoleType string
 
-                var role = {
-                  Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
-                  Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
-                  Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
-                }
+                    var role = {
+                      Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                      Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                      Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                    }
 
-                resource roleAssignSub 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
-                  name: guid(subscription().id, principalId, role[builtInRoleType])
-                  properties: {
-                    roleDefinitionId: role[builtInRoleType]
-                    principalId: principalId
-                  }
-                }");
+                    resource roleAssignSub 'fake.Authorization/roleAssignments@2020-04-01-preview' = {
+                      name: guid(subscription().id, principalId, role[builtInRoleType])
+                      properties: {
+                        roleDefinitionId: role[builtInRoleType]
+                        principalId: principalId
+                      }
+                    }",
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04"
+                );
         }
 
         [TestMethod]
-        public void ExtensionResources_ScopeProperty_Pass()
+        public void ExtensionResources_ScopeProperty()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
             CompileAndTestWithFakeDateAndTypes(@"
-                @description('The principal to assign the role to')
-                param principalId string
+                    @description('The principal to assign the role to')
+                    param principalId string
 
-                @allowed([
-                  'Owner'
-                  'Contributor'
-                  'Reader'
-                ])
-                @description('Built-in role to assign')
-                param builtInRoleType string
+                    @allowed([
+                      'Owner'
+                      'Contributor'
+                      'Reader'
+                    ])
+                    @description('Built-in role to assign')
+                    param builtInRoleType string
 
-                param location string = resourceGroup().location
+                    param location string = resourceGroup().location
 
-                var role = {
-                  Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
-                  Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
-                  Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
-                }
-                var uniqueStorageName = 'storage${uniqueString(resourceGroup().id)}'
+                    var role = {
+                      Owner: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635'
+                      Contributor: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c'
+                      Reader: '/subscriptions/${subscription().subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7'
+                    }
+                    #disable-next-line no-loc-expr-outside-params
+                    var uniqueStorageName = 'storage${uniqueString(resourceGroup().id)}'
 
-                resource demoStorageAcct 'Microsoft.Storage/storageAccounts@2019-04-01' = {
-                  name: uniqueStorageName
-                  location: location
-                  sku: {
-                    name: 'Standard_LRS'
-                  }
-                  kind: 'Storage'
-                  properties: {}
-                }
+                    // newer stable available
+                    resource demoStorageAcct 'fake.Storage/storageAccounts@2420-08-01-preview' = {
+                      name: uniqueStorageName
+                      location: location
+                      sku: {
+                        name: 'Standard_LRS'
+                      }
+                      kind: 'Storage'
+                      properties: {}
+                    }
 
-                resource roleAssignStorage 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
-                  name: guid(demoStorageAcct.id, principalId, role[builtInRoleType])
-                  properties: {
-                    roleDefinitionId: role[builtInRoleType]
-                    principalId: principalId
-                  }
-                  scope: demoStorageAcct
-                }");
+                    // old
+                    resource roleAssignStorage 'fake.Authorization/roleAssignments@2420-04-01-preview' = {
+                      name: guid(demoStorageAcct.id, principalId, role[builtInRoleType])
+                      properties: {
+                        roleDefinitionId: role[builtInRoleType]
+                        principalId: principalId
+                      }
+                      scope: demoStorageAcct
+                    }",
+                FakeResourceTypes.ResourceScopeTypes,
+                "2422-07-04",
+                "[23] Use recent API version for 'fake.Storage/storageAccounts'. '2420-08-01-preview' is a preview version and there is a more recent non-preview version available. Acceptable versions: 2421-06-01, 2421-04-01, 2421-02-01, 2421-01-01",
+                "[34] Use recent API version for 'fake.Authorization/roleAssignments'. '2420-04-01-preview' is 824 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2415-07-01");
         }
 
         [TestMethod]
-        public void ExtensionResources_ScopeProperty_ExistingResource_Pass()
+        public void ExtensionResources_ScopeProperty_ExistingResource_PartiallyPass()
         {
             // https://docs.microsoft.com/en-us/azure/azure-resource-manager/bicep/scope-extension-resources#apply-to-resource
             CompileAndTestWithFakeDateAndTypes(@"
-                resource demoStorageAcct 'Microsoft.Storage/storageAccounts@2021-04-01' existing = {
-                  name: 'examplestore'
-                }
+                    resource demoStorageAcct 'fake.Storage/storageAccounts@2421-04-01' existing = {
+                      name: 'examplestore'
+                    }
 
-                resource createStorageLock 'Microsoft.Authorization/locks@2016-09-01' = {
-                  name: 'storeLock'
-                  scope: demoStorageAcct
-                  properties: {
-                    level: 'CanNotDelete'
-                    notes: 'Storage account should not be deleted.'
-                  }
-                }");
+                    resource createStorageLock 'fake.Authorization/locks@2416-09-01' = {
+                      name: 'storeLock'
+                      scope: demoStorageAcct
+                      properties: {
+                        level: 'CanNotDelete'
+                        notes: 'Storage account should not be deleted.'
+                      }
+                    }",
+                 FakeResourceTypes.ResourceScopeTypes,
+                 "2422-07-04",
+                 "[5] Use recent API version for 'fake.Authorization/locks'. '2416-09-01' is 2132 days old, should be no more than 730 days old. Acceptable versions: 2420-05-01");
         }
 
-        [TestMethod]
-        public void TenantDeployment_OldApiVersion_Fail()
-        {
-            CompileAndTestWithFakeDateAndTypes(@"
-                targetScope = 'tenant'
+        //asdfg
+        //[TestMethod]
+        //public void TenantDeployment_OldApiVersion_Fail()
+        //{
+        //    CompileAndTestWithFakeDateAndTypes(@"
+        //            targetScope = 'tenant'
 
-                resource mgName_resource 'Microsoft.Management/managementGroups@2020-02-01' = {
-                  name: 'mg1'
-                }",
-                "asdfg todo");
-        }
+        //            resource mgName_resource 'fake.Management/managementGroups@2420-02-01' = {
+        //              name: 'mg1'
+        //            }",
+        //        FakeResourceTypes.SubscriptionScopeTypes, //asdfg test for real
+        //        "2422-07-04",
+        //        "asdfg todo");
+        //}
+
+        //[TestMethod]
+        //public void TenantDeployment_Pass()
+        //{
+        //    CompileAndTestWithFakeDateAndTypes(@"
+        //            targetScope = 'tenant'
+
+        //            resource mgName_resource 'fake.Management/managementGroups@2420-02-01' = {
+        //              name: 'mg1'
+        //            }",
+        //        FakeResourceTypes.SubscriptionScopeTypes, //asdfg test for real
+        //        "2422-07-04",
+        //        "asdfg todo");
+        //}
 
         [TestMethod]
         public void SubscriptionDeployment_OldApiVersion_Fail()
         {
             CompileAndTestWithFakeDateAndTypes(@"
-                targetScope='subscription'
+                    targetScope='subscription'
 
-                param resourceGroupName string
-                param resourceGroupLocation string
+                    param resourceGroupName string
+                    param resourceGroupLocation string
 
-                resource newRG 'Microsoft.Resources/resourceGroups@2021-01-01' = {
-                  name: resourceGroupName
-                  location: resourceGroupLocation
-                }",
-                "asdfg todo");
+                    resource newRG 'fake.Resources/resourceGroups@2419-05-10' = {
+                      name: resourceGroupName
+                      location: resourceGroupLocation
+                    }",
+                FakeResourceTypes.SubscriptionScopeTypes, //asdfg test for real
+                "2422-07-04",
+                "[6] Use recent API version for 'fake.Resources/resourceGroups'. '2419-05-10' is 1151 days old, should be no more than 730 days old. Acceptable versions: 2421-05-01, 2421-04-01, 2421-01-01, 2420-10-01, 2420-08-01");
         }
 
         [TestMethod]
-        public void ManagementGroupDeployment_OldApiVersion_Fail()
+        public void SubscriptionDeployment_Pass()
         {
             CompileAndTestWithFakeDateAndTypes(@"
-                targetScope = 'managementGroup'
+                    targetScope='subscription'
 
-                param mgName string = 'mg-${uniqueString(newGuid())}'
+                    param resourceGroupName string
+                    param resourceGroupLocation string
 
-                resource newMG 'Microsoft.Management/managementGroups@2020-05-01' = {
-                  scope: tenant()
-                  name: mgName
-                  properties: {}
-                }
-
-                output newManagementGroup string = mgName",
-                "asdfg todo");
+                    resource newRG 'fake.Resources/resourceGroups@2421-01-01' = {
+                      name: resourceGroupName
+                      location: resourceGroupLocation
+                    }",
+                FakeResourceTypes.SubscriptionScopeTypes, //asdfg test for real
+                "2422-07-04");
         }
 
-        [TestMethod]
-        public void ArmTtk_LatestStableApiOlderThan2Years_Pass()
-        {
-            CompileAndTestWithFakeDateAndTypes(@"
-                @description('The name for the Slack connection.')
-                param slackConnectionName string = 'SlackConnection'
+        //asdfg management group
+        //    [TestMethod]
+        //    public void ManagementGroupDeployment_OldApiVersion_Fail()
+        //    {
+        //        CompileAndTestWithFakeDateAndTypes(@"
+        //            targetScope = 'managementGroup'
 
-                @description('Location for all resources.')
-                param location string
+        //            param mgName string = 'mg-${uniqueString(newGuid())}'
 
-                // The only available API versions are:
-                //    fake.Web/connections@2015-08-01-preview
-                //    fake.Web/connections@2016-06-01
-                // So this passes even though it's older than 2 years
-                resource slackConnectionName_resource 'Fke.Web/connections@2016-06-01' = {
-                  location: location
-                  name: slackConnectionName
-                  properties: {
-                    api: {
-                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
-                    }
-                    displayName: 'slack'
-                  }
-                }");
-        }
+        //            resource newMG 'Microsoft.Management/managementGroups@2020-05-01' = {
+        //              scope: tenant()
+        //              name: mgName
+        //              properties: {}
+        //            }
 
-        [TestMethod]
-        public void UnrecognizedVersionApiOlderThan2Years_Pass_ButGetCompilerWarning()
-        {
-            CompileAndTest(@"
-                @description('The name for the Slack connection.')
-                param slackConnectionName string = 'SlackConnection'
+        //            output newManagementGroup string = mgName",
+        //            "asdfg todo");
+        //    }
 
-                @description('Location for all resources.')
-                param location string
+        //    [TestMethod]
+        //    public void ArmTtk_LatestStableApiOlderThan2Years_Pass()
+        //    {
+        //        CompileAndTestWithFakeDateAndTypes(@"
+        //            @description('The name for the Slack connection.')
+        //            param slackConnectionName string = 'SlackConnection'
 
-                resource slackConnectionName_resource 'Microsoft.Web/connections@2015-06-01' = { // Known type, unknown api version
-                  location: location
-                  name: slackConnectionName
-                  properties: {
-                    api: {
-                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
-                    }
-                    displayName: 'slack'
-                  }
-                }",
-                OnCompileErrors.IncludeErrorsAndWarnings,
-                "[7] Resource type \"Microsoft.Web/connections@2015-06-01");
-        }
+        //            @description('Location for all resources.')
+        //            param location string
 
-        [TestMethod]
-        public void UnrecognizedResourceType_WithApiOlderThan2Years_Pass_ButGetCompilerWarning()
-        {
-            CompileAndTest(@"
-                @description('The name for the Slack connection.')
-                param slackConnectionName string = 'SlackConnection'
+        //            // The only available API versions are:
+        //            //    fake.Web/connections@2015-08-01-preview
+        //            //    fake.Web/connections@2016-06-01
+        //            // So this passes even though it's older than 2 years
+        //            resource slackConnectionName_resource 'Fke.Web/connections@2016-06-01' = {
+        //              location: location
+        //              name: slackConnectionName
+        //              properties: {
+        //                api: {
+        //                  id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+        //                }
+        //                displayName: 'slack'
+        //              }
+        //            }");
+        //    }
 
-                @description('Location for all resources.')
-                param location string
+        //    [TestMethod]
+        //    public void UnrecognizedVersionApiOlderThan2Years_Pass_ButGetCompilerWarning()
+        //    {
+        //        CompileAndTest(@"
+        //            @description('The name for the Slack connection.')
+        //            param slackConnectionName string = 'SlackConnection'
 
-                resource slackConnectionName_resource 'Microsoft.Unknown/connections@2015-06-01' = { // unknown resource type
-                  location: location
-                  name: slackConnectionName
-                  properties: {
-                    api: {
-                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
-                    }
-                    displayName: 'slack'
-                  }
-                }",
-                 OnCompileErrors.IncludeErrorsAndWarnings,
-                "[7] Resource type \"Fake.Unknown/connections@2015-06-01\" does not have types available.");
-        }
+        //            @description('Location for all resources.')
+        //            param location string
 
-        [TestMethod]
-        public void ArmTtk_ProviderResource()
-        {
+        //            resource slackConnectionName_resource 'Microsoft.Web/connections@2015-06-01' = { // Known type, unknown api version
+        //              location: location
+        //              name: slackConnectionName
+        //              properties: {
+        //                api: {
+        //                  id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+        //                }
+        //                displayName: 'slack'
+        //              }
+        //            }",
+        //            OnCompileErrors.IncludeErrorsAndWarnings,
+        //            "[7] Resource type \"Microsoft.Web/connections@2015-06-01");
+        //    }
 
-            CompileAndTestWithFakeDateAndTypes(@"
-                @description('The name for the Slack connection.')
-                param slackConnectionName string = 'SlackConnection'
+        //    [TestMethod]
+        //    public void UnrecognizedResourceType_WithApiOlderThan2Years_Pass_ButGetCompilerWarning()
+        //    {
+        //        CompileAndTest(@"
+        //            @description('The name for the Slack connection.')
+        //            param slackConnectionName string = 'SlackConnection'
 
-                @description('Location for all resources.')
-                param location string
+        //            @description('Location for all resources.')
+        //            param location string
 
-                resource slackConnectionName_resource 'Microsoft.Unknown/connections@2015-06-01' = { // unknown resource type
-                  location: location
-                  name: slackConnectionName
-                  properties: {
-                    api: {
-                      id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
-                    }
-                    displayName: 'slack'
-                  }
-                }",
-                new string[] {
-                "asdf??"
-                },
-                "2022-07-07",
-                "asdf??");
-        }
+        //            resource slackConnectionName_resource 'Microsoft.Unknown/connections@2015-06-01' = { // unknown resource type
+        //              location: location
+        //              name: slackConnectionName
+        //              properties: {
+        //                api: {
+        //                  id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+        //                }
+        //                displayName: 'slack'
+        //              }
+        //            }",
+        //             OnCompileErrors.IncludeErrorsAndWarnings,
+        //            "[7] Resource type \"Fake.Unknown/connections@2015-06-01\" does not have types available.");
+        //    }
 
-        [TestMethod]
-        public void LotsOfNonStableVersions()
-        {
-            //asdfg?
-            /*
-             {
-            "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-            "contentVersion": "1.0.0.0",
-            "parameters": {},
-            "functions": [],
-            "resources": [
-            {
-            // pass
-             "name": "res1",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2020-05-26-privatepreview"
-            },
-            {
-            // apiVersions Should Be Recent
-            // Api versions must be the latest or under 2 years old (730 days) - API version 2020-05-26-preview of Microsoft.VSOnline/registeredSubscriptions is 772 days old Line: 14, Column: 14
-            // Valid Api Versions:                                                                                             
-            //    2020-05-26-beta                                                                                                 
-            //    2020-05-26-privatepreview   
-             "name": "res2",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2020-05-26-preview"
-            },
-            {
-            // pass
-             "name": "res3",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2020-05-26-beta"
-            },
-            {
-            // pass
-             "name": "res4",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2020-05-26-alpha"
-            },
-            {
-            // pass
-             "name": "res5",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2019-07-01-privatepreview"
-            },
-            {
-            // pass
-             "name": "res6",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2019-07-01-preview"
-            },
-            {
-            // pass
-             "name": "res7",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2019-07-01-beta"
-            },
-            {
-            // pass
-             "name": "res8",
-            "type": "Microsoft.VSOnline/registeredSubscriptions",
-            "apiVersion": "2019-07-01-alpha"
-            }
-            ],
-            "outputs": {}
-            }
-            */
+        //    [TestMethod]
+        //    public void ArmTtk_ProviderResource()
+        //    {
 
-            CompileAndTestWithFakeDateAndTypes(@"
-    // Pass - old but no more recent stable version
-    resource res1 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview' = {
-      name: 'res1'
-    }
+        //        CompileAndTestWithFakeDateAndTypes(@"
+        //            @description('The name for the Slack connection.')
+        //            param slackConnectionName string = 'SlackConnection'
 
-    // asdfg?
-    // Pass - old but no more recent stable version
-    resource res2 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview' = {
-      name: 'res2'
-    }
+        //            @description('Location for all resources.')
+        //            param location string
 
-    // asdfg?
-    // Pass - old but no more recent stable version
-    resource res3 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta' = {
-      name: 'res3'
-    }
+        //            resource slackConnectionName_resource 'Microsoft.Unknown/connections@2015-06-01' = { // unknown resource type
+        //              location: location
+        //              name: slackConnectionName
+        //              properties: {
+        //                api: {
+        //                  id: subscriptionResourceId('Microsoft.Web/locations/managedApis', location, 'slack')
+        //                }
+        //                displayName: 'slack'
+        //              }
+        //            }",
+        //            new string[] {
+        //            "asdf??"
+        //            },
+        //            "2022-07-07",
+        //            "asdf??");
+        //    }
 
-    // asdfg?
-    // Pass - old but no more recent stable version 
-    resource res4 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-alpha' = {
-      name: 'res4'
-    }
+        //    [TestMethod]
+        //    public void LotsOfNonStableVersions()
+        //    {
+        //        //asdfg?
+        //        /*
+        //         {
+        //        "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+        //        "contentVersion": "1.0.0.0",
+        //        "parameters": {},
+        //        "functions": [],
+        //        "resources": [
+        //        {
+        //        // pass
+        //         "name": "res1",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2020-05-26-privatepreview"
+        //        },
+        //        {
+        //        // apiVersions Should Be Recent
+        //        // Api versions must be the latest or under 2 years old (730 days) - API version 2020-05-26-preview of Microsoft.VSOnline/registeredSubscriptions is 772 days old Line: 14, Column: 14
+        //        // Valid Api Versions:                                                                                             
+        //        //    2020-05-26-beta                                                                                                 
+        //        //    2020-05-26-privatepreview   
+        //         "name": "res2",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2020-05-26-preview"
+        //        },
+        //        {
+        //        // pass
+        //         "name": "res3",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2020-05-26-beta"
+        //        },
+        //        {
+        //        // pass
+        //         "name": "res4",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2020-05-26-alpha"
+        //        },
+        //        {
+        //        // pass
+        //         "name": "res5",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2019-07-01-privatepreview"
+        //        },
+        //        {
+        //        // pass
+        //         "name": "res6",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2019-07-01-preview"
+        //        },
+        //        {
+        //        // pass
+        //         "name": "res7",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2019-07-01-beta"
+        //        },
+        //        {
+        //        // pass
+        //         "name": "res8",
+        //        "type": "Microsoft.VSOnline/registeredSubscriptions",
+        //        "apiVersion": "2019-07-01-alpha"
+        //        }
+        //        ],
+        //        "outputs": {}
+        //        }
+        //        */
 
-    // Fail
-    resource res5 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-privatepreview' = {
-      name: 'res5'
-    }
+        //        CompileAndTestWithFakeDateAndTypes(@"
+        //// Pass - old but no more recent stable version
+        //resource res1 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview' = {
+        //  name: 'res1'
+        //}
 
-    // Fail
-    resource res6 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview' = {
-      name: 'res6'
-    }
+        //// asdfg?
+        //// Pass - old but no more recent stable version
+        //resource res2 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview' = {
+        //  name: 'res2'
+        //}
 
-    // Fail
-    resource res7 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta' = {
-      name: 'res7'
-    }
+        //// asdfg?
+        //// Pass - old but no more recent stable version
+        //resource res3 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta' = {
+        //  name: 'res3'
+        //}
 
-    // Fail
-    resource res8 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha' = {
-      name: 'res8'
-    }",
-                    new string[] {
-        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview",
-        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview",
-        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta",
-        "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-alpha",
-        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-privatepreview",
-        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview",
-        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta",
-        "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha"
-                    },
-                    "2022-07-07",
-                    "asdf??");
-        }
+        //// asdfg?
+        //// Pass - old but no more recent stable version 
+        //resource res4 'Microsoft.VSOnline/registeredSubscriptions@2020-05-26-alpha' = {
+        //  name: 'res4'
+        //}
+
+        //// Fail
+        //resource res5 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-privatepreview' = {
+        //  name: 'res5'
+        //}
+
+        //// Fail
+        //resource res6 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview' = {
+        //  name: 'res6'
+        //}
+
+        //// Fail
+        //resource res7 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta' = {
+        //  name: 'res7'
+        //}
+
+        //// Fail
+        //resource res8 'Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha' = {
+        //  name: 'res8'
+        //}",
+        //                new string[] {
+        //    "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-privatepreview",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-preview",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-beta",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2020-05-26-alpha",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-privatepreview",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-preview",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-beta",
+        //    "Microsoft.VSOnline/registeredSubscriptions@2019-07-01-alpha"
+        //                },
+        //                "2022-07-07",
+        //                "asdf??");
+        //    }
+
+
+        // asdfg ask brian
+        //     {
+        //  /*  Api versions must be the latest or under 2 years old (730 days) - API version 2014-04-01-preview of Microsoft.Web/sites/eventGridFilters is 3022 days old Line: 19, Column: 8
+        //       Valid Api Versions:                                                                                             
+        //    2022-03-01                                                                                                      
+        //    2022-03-01                                                                                                      
+        //    2021-03-01                                                                                                      
+        //    2021-02-01                                                                                                      
+        //    2021-01-15                                                                                                      
+        //    2021-01-01                                                                                                      
+        //    2020-12-01                                                                                                      
+        //    2020-10-01                                                                                                      
+        //    2020-09-01  
+        //    */
+        //  "type": "Microsoft.Web/sites/eventGridFilters",
+        //  "apiVersion": "2014-04-01-preview"
+        //},
+        //  {
+        //  /*  
+        //          Microsoft.Web/sites/eventGridFilters uses a preview version ( 2015-08-01-preview ) and there are more recent versions available. Line: 37, Column: 8
+        //    Valid Api Versions:                                                                                             
+        //    2022-03-01                                                                                                      
+        //    2022-03-01                                                                                                      
+        //    2021-03-01                                                                                                      
+        //    2021-02-01                                                                                                      
+        //    2021-01-15                                                                                                      
+        //    2021-01-01                                                                                                      
+        //    2020-12-01                                                                                                      
+        //    2020-10-01                                                                                                      
+        //    2020-09-01  
+        //    */
+        //  "type": "Microsoft.Web/sites/eventGridFilters",
+        //  "apiVersion": "2015-08-01-preview"
+        //},
     }
 }

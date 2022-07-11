@@ -302,6 +302,6 @@
   </data>
   <data name="UseRecentApiVersionRuleMessageFormat" xml:space="preserve">
     <value>Use recent API version for '{0}'. {1} Acceptable versions: {2}</value>
-    <comment>{0} = fully-qualified resource type. {1} = reason for failure (sentence). {2}: list of acceptable values</comment>
+    <comment>{0} = fully-qualified resource type name (programmatic). {1} = reason for failure (a sentence with a period). {2}: list of acceptable values</comment>
   </data>
 </root>

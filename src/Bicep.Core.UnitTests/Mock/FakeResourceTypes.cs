@@ -10,14 +10,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 {
     internal static class FakeResourceTypes
     {
-        public static IEnumerable<ResourceTypeReference> GetFakeResourceTypeReferences(string fakeResourceTypesAndVersions)
+        private static string[] SplitLines(string fakeResourceTypesAndVersions)
         {
             var types = fakeResourceTypesAndVersions
-                .ReplaceLineEndings("\n")
-                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s));
-            return GetFakeResourceTypeReferences(types);
+               .ReplaceLineEndings("\n")
+               .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.RemoveEmptyEntries)
+               .Select(line => line.Trim())
+               .Where(s => !string.IsNullOrWhiteSpace(s));
+            return types.ToArray();
+        }
+
+        public static IEnumerable<ResourceTypeReference> GetFakeResourceTypeReferences(string fakeResourceTypesAndVersions)
+        {
+            return GetFakeResourceTypeReferences(SplitLines(fakeResourceTypesAndVersions));
         }
 
         public static IEnumerable<ResourceTypeReference> GetFakeResourceTypeReferences(IEnumerable<string> fakeResourceTypesAndVersions)
@@ -29,7 +34,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
         }
 
-        public const string ResourceScope = @"Fake.Genomics/accounts@2417-08-01-preview
+        public static string[] ResourceScopeTypes
+            => SplitLines(ResourceScopeString);
+
+        private const string ResourceScopeString = @"Fake.Genomics/accounts@2417-08-01-preview
 Fake.RecoveryServices/vaults@2418-01-10
 Fake.RecoveryServices/vaults@2417-07-01
 Fake.RecoveryServices/vaults@2416-05-01
@@ -4584,6 +4592,8 @@ Fake.ServiceBus/namespaces@2417-04-01
 Fake.ServiceBus/namespaces@2418-01-01-preview
 Fake.ServiceBus/namespaces@2421-01-01-preview
 Fake.ServiceBus/namespaces@2421-06-01-preview
+Fake.ServiceBus/namespaces@2021-11-01
+Fake.ServiceBus/namespaces@2022-01-01-preview
 Fake.ServiceBus/namespaces/AuthorizationRules@2415-08-01
 Fake.ServiceBus/namespaces/AuthorizationRules@2417-04-01
 Fake.ServiceBus/namespaces/AuthorizationRules@2418-01-01-preview
@@ -6125,8 +6135,11 @@ Fake.WindowsESU/multipleActivationKeys@2419-09-16-preview
 Fake.WindowsIoT/deviceServices@2418-02-16-preview
 Fake.WindowsIoT/deviceServices@2419-06-01";
 
-        public static string SubscriptionScope = @"
-Retrieving available resource types and apiVersions for https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#...
+
+        public static string[] SubscriptionScopeTypes
+            => SplitLines(SubscriptionScopeString);
+
+        private const string SubscriptionScopeString = @"
 Fake.Addons/supportProviders/supportPlanTypes@2417-05-15
 Fake.Addons/supportProviders/supportPlanTypes@2418-03-01
 Fake.Advisor/configurations@2417-04-19

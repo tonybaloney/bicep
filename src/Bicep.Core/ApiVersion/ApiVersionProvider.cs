@@ -21,14 +21,10 @@ namespace Bicep.Core.ApiVersion
         // E.g. 2022-07-07-alpha, 2022-07-07-preview, 2022-07-07-privatepreview etc.
         private Dictionary<string, List<string>> previewVersions = new(Comparer);
 
+        private bool _typesCached = false;
 
         public ApiVersionProvider()
         {
-            DefaultNamespaceProvider defaultNamespaceProvider = new DefaultNamespaceProvider(new AzResourceTypeLoader(), new FeatureProvider());
-            NamespaceResolver namespaceResolver = NamespaceResolver.Create(defaultNamespaceProvider, TypeSystem.ResourceScope.ResourceGroup, Enumerable.Empty<ImportedNamespaceSymbol>());
-            IEnumerable<ResourceTypeReference> resourceTypeReferences = namespaceResolver.GetAvailableResourceTypes();
-
-            CacheApiVersions(resourceTypeReferences);
         }
 
         // For testing
@@ -37,8 +33,25 @@ namespace Bicep.Core.ApiVersion
             CacheApiVersions(resourceTypeReferences);
         }
 
+        private void VerifyCache()
+        {
+            if (_typesCached)
+            {
+                return;
+            }
+            _typesCached = true;
+
+            DefaultNamespaceProvider defaultNamespaceProvider = new DefaultNamespaceProvider(new AzResourceTypeLoader(), new FeatureProvider());
+            NamespaceResolver namespaceResolver = NamespaceResolver.Create(defaultNamespaceProvider, TypeSystem.ResourceScope.ResourceGroup, Enumerable.Empty<ImportedNamespaceSymbol>());
+            IEnumerable<ResourceTypeReference> resourceTypeReferences = namespaceResolver.GetAvailableResourceTypes();
+
+            CacheApiVersions(resourceTypeReferences);
+        }
+
         private void CacheApiVersions(IEnumerable<ResourceTypeReference> resourceTypeReferences)
         {
+            _typesCached = true;
+
             foreach (var resourceTypeReference in resourceTypeReferences)
             {
                 (string? apiVersion, string? suffix) = resourceTypeReference.ApiVersion != null ? ApiVersionHelper.TryParse(resourceTypeReference.ApiVersion) : (null, null);
@@ -85,6 +98,13 @@ namespace Bicep.Core.ApiVersion
         //asdfg
         public IEnumerable<string> GetSortedValidApiVersions(string fullyQualifiedResourceType)
         {
+            VerifyCache();
+
+            if (!stableVersions.Any() && !previewVersions.Any())
+            {
+                throw new InvalidCastException("ApiVersionProvider was unable to find any resource types");
+            }
+
             var allVersions = new List<string>();
 
             if (stableVersions.TryGetValue(fullyQualifiedResourceType, out List<string>? stable))
@@ -96,41 +116,8 @@ namespace Bicep.Core.ApiVersion
                 allVersions.AddRange(previews);
             }
 
-        //asdfg    allVersions.Sort();
+            //asdfg    allVersions.Sort();
             return allVersions.ToArray();
         }
-
-        //asdfg
-        //public string? GetRecentApiVersion(string fullyQualifiedName, string? prefix)
-        //{
-        //    switch (prefix)
-        //    {
-        //        case ApiVersionSuffixes.GA:
-        //            return GetRecentApiVersion(fullyQualifiedName, gaVersions);
-        //        case ApiVersionSuffixes.Alpha:
-        //            return GetRecentApiVersion(fullyQualifiedName, alphaVersions);
-        //        case ApiVersionSuffixes.Beta:
-        //            return GetRecentApiVersion(fullyQualifiedName, betaVersions);
-        //        case ApiVersionSuffixes.Preview:
-        //            return GetRecentApiVersion(fullyQualifiedName, previewVersions);
-        //        case ApiVersionSuffixes.PrivatePreview:
-        //            return GetRecentApiVersion(fullyQualifiedName, privatePreviewVersions);
-        //        case ApiVersionSuffixes.RC:
-        //            return GetRecentApiVersion(fullyQualifiedName, rcVersions);
-        //    }
-
-        //    return null;
-        //}
-
-        //private string? GetRecentApiVersion(string fullyQualifiedName, Dictionary<string, List<string>> cache)
-        //    {
-        //        if (cache.TryGetValue(fullyQualifiedName, out List<string>? apiVersionDates) && apiVersionDates.Any())
-        //        {
-        //            return apiVersionDates.First();
-        //        }
-
-        //        return null;
-        //    }
-
     }
 }

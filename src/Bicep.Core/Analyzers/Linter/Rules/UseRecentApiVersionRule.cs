@@ -16,6 +16,8 @@ using Bicep.Core.Syntax;
 
 namespace Bicep.Core.Analyzers.Linter.Rules
 {
+    //asdfg debug flag to indicate if type/version not found?
+
     //asdfg prefix -> suffix
 
     //    //asdfg
@@ -65,17 +67,26 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             }
         }
 
+        public override string FormatMessage(params object[] values)
+        {
+            var resourceType = (string)values[0];
+            var reason = (string)values[1];
+            var acceptableVersions = (string[])values[2];
+            var acceptableVersionsString = string.Join(", ", acceptableVersions);
+            return string.Format(CoreResources.UseRecentApiVersionRuleMessageFormat, resourceType, reason, acceptableVersionsString);
+        }
+
         override public IEnumerable<IDiagnostic> AnalyzeInternal(SemanticModel model)
         {
             var visitor = new Visitor(model, today, UseRecentApiVersionRule.MaxAllowedAgeInDays);
             visitor.Visit(model.SourceFile.ProgramSyntax);
 
-            return visitor.Fixes.Select(fix => CreateFixableDiagnosticForSpan(fix.Span, fix.Fix));
+            return visitor.Failures.Select(fix => CreateFixableDiagnosticForSpan(fix.span, fix.fixes, fix.resourceType, fix.reason, fix.acceptableVersions));
         }
 
         public sealed class Visitor : SyntaxVisitor
         {
-            internal readonly List<(TextSpan Span, CodeFix Fix)> Fixes = new();
+            internal readonly List<(TextSpan span, string resourceType, string reason, string[] acceptableVersions, CodeFix[] fixes)> Failures = new();
 
             private readonly IApiVersionProvider apiVersionProvider;
             private readonly SemanticModel model;
@@ -100,20 +111,20 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     GetReplacementSpan(resourceSymbol, apiVersion) is TextSpan replacementSpan)
                 {
                     string fullyQualifiedResourceType = resourceTypeReference.FormatType();
-                    var fix = CreateFixIfFails(replacementSpan, fullyQualifiedResourceType, apiVersion);
+                    var failure = AnalyzeApiVersion(replacementSpan, fullyQualifiedResourceType, apiVersion);
 
-                    if (fix is not null)
+                    if (failure is not null)
                     {
-                        Fixes.Add(fix.Value);
+                        Failures.Add(failure.Value);
                     }
                 }
 
                 base.VisitResourceDeclarationSyntax(resourceDeclarationSyntax);
             }
 
-            public (TextSpan span, CodeFix fix)? CreateFixIfFails(TextSpan replacementSpan, string fullyQualifiedResourceType, string actualApiVersion)
+            public (TextSpan span, string resourceType, string reason, string[] acceptableVersions, CodeFix[] fixes)? AnalyzeApiVersion(TextSpan replacementSpan, string fullyQualifiedResourceType, string actualApiVersion)
             {
-                (string? currentApiDate, string? actualApiSuffix) = ApiVersionHelper.TryParse(actualApiVersion);
+                (string? currentApiDate, _) = ApiVersionHelper.TryParse(actualApiVersion);
                 if (currentApiDate is null)
                 {//asdfg testpoint
                     // The API version is not valid. Bicep will show an error, so we don't want to show anything else
@@ -170,7 +181,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 }
 
                 Debug.Assert(failureReason is not null);
-                return CreateCodeFix(
+                return CreatureFailure(
                     replacementSpan,
                     fullyQualifiedResourceType,
                     actualApiVersion,
@@ -265,17 +276,14 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return null;
             }
 
-            private (TextSpan Span, CodeFix Fix) CreateCodeFix(TextSpan span, string fullyQualifiedResourceType, string actualApiVersion, string reason, string[] acceptableApiVersions)
+            private (TextSpan span, string resourceType, string reason, string[] acceptableVersions, CodeFix[] fixes) CreatureFailure(TextSpan span, string fullyQualifiedResourceType, string actualApiVersion, string reason, string[] acceptableApiVersions)
             {
                 var preferredVersion = acceptableApiVersions[0];
                 var codeReplacement = new CodeReplacement(span, preferredVersion);
 
-                var acceptableVersionsString = string.Join(", ", acceptableApiVersions);
+                var fix = new CodeFix($"Replace apiVersion with {preferredVersion}", true, CodeFixKind.QuickFix, codeReplacement); //asdfg ask brian
 
-                string description = string.Format(CoreResources.UseRecentApiVersionRuleMessageFormat, fullyQualifiedResourceType, reason, acceptableVersionsString);
-                var fix = new CodeFix(description, true, CodeFixKind.QuickFix, codeReplacement);
-
-                return (span, fix);
+                return (span, fullyQualifiedResourceType, reason, acceptableApiVersions, new CodeFix[] { fix });
             }
 
             // Returns just the date string, not an entire apiVersion
@@ -335,7 +343,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
             private static string GetOldestAcceptableDate(DateTime today, int maxAllowedAgeInDays)
             {
-               return  ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
+                return ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
             }
         }
     }
