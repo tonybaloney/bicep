@@ -13,6 +13,7 @@ using Bicep.Core.Parsing;
 using Bicep.Core.Resources;
 using Bicep.Core.Semantics;
 using Bicep.Core.Syntax;
+using Bicep.Core.TypeSystem;
 
 namespace Bicep.Core.Analyzers.Linter.Rules
 {
@@ -111,7 +112,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     GetReplacementSpan(resourceSymbol, apiVersion) is TextSpan replacementSpan)
                 {
                     string fullyQualifiedResourceType = resourceTypeReference.FormatType();
-                    var failure = AnalyzeApiVersion(replacementSpan, fullyQualifiedResourceType, apiVersion);
+                    var failure = AnalyzeApiVersion(replacementSpan, model.TargetScope, fullyQualifiedResourceType, apiVersion);
 
                     if (failure is not null)
                     {
@@ -122,7 +123,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 base.VisitResourceDeclarationSyntax(resourceDeclarationSyntax);
             }
 
-            public (TextSpan span, string resourceType, string reason, string[] acceptableVersions, CodeFix[] fixes)? AnalyzeApiVersion(TextSpan replacementSpan, string fullyQualifiedResourceType, string actualApiVersion)
+            public (TextSpan span, string resourceType, string reason, string[] acceptableVersions, CodeFix[] fixes)? AnalyzeApiVersion(TextSpan replacementSpan, ResourceScope scope, string fullyQualifiedResourceType, string actualApiVersion)
             {
                 (string? currentApiDate, _) = ApiVersionHelper.TryParse(actualApiVersion);
                 if (currentApiDate is null)
@@ -131,14 +132,14 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     return null;
                 }
 
-                var (allApiVersions, acceptableApiVersions) = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, fullyQualifiedResourceType);
+                var (allApiVersions, acceptableApiVersions) = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, scope, fullyQualifiedResourceType);
                 if (!allApiVersions.Any())
                 {
                     // Resource type not recognized. Bicep will show a warning, so we don't want to show anything else
                     return null;//asdfg testpoint
                 }
 
-                Debug.Assert(acceptableApiVersions.Any(), $"There should always be at least one acceptable version for a valid resource type: {fullyQualifiedResourceType}");
+                Debug.Assert(acceptableApiVersions.Any(), $"There should always be at least one acceptable version for a valid resource type: {fullyQualifiedResourceType} (scope {scope})");
                 if (acceptableApiVersions.Contains(actualApiVersion)) //asdfg case insensitive
                 {//asdfg testpoint
                     // Passed - version is acceptable
@@ -190,9 +191,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             }
 
             //asdfg handle when there's a newer non-preview version
-            public static (string[] allApiVersions, string[] acceptableVersions) GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, string fullyQualifiedResourceType)
+            public static (string[] allApiVersions, string[] acceptableVersions) GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, ResourceScope scope, string fullyQualifiedResourceType)
             {
-                var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(fullyQualifiedResourceType).ToArray();
+                var allVersionsSorted = apiVersionProvider.GetSortedValidApiVersions(scope, fullyQualifiedResourceType).ToArray();
                 if (!allVersionsSorted.Any())
                 {
                     // The resource type is not recognized.
