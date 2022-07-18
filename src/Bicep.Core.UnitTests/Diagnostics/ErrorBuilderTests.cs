@@ -21,7 +21,6 @@ namespace Bicep.Core.UnitTests.Diagnostics
     [TestClass]
     public class DiagnosticBuilderTests
     {
-        [TestMethod]
         public void DiagnosticBuilder_CodesAreUnique()
         {
             var diagnosticMethods = typeof(DiagnosticBuilder.DiagnosticBuilderInternal)
