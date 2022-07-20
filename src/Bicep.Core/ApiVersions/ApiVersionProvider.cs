@@ -12,7 +12,7 @@ using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.TypeSystem.Az;
 using ResourceScope = Bicep.Core.TypeSystem.ResourceScope;
 
-namespace Bicep.Core.ApiVersion
+namespace Bicep.Core.ApiVersions
 {
     public class ApiVersionProvider : IApiVersionProvider
     {
@@ -34,7 +34,7 @@ namespace Bicep.Core.ApiVersion
 
         private ApiVersionCache GetCache(ResourceScope scope)
         {
-            switch(scope)
+            switch (scope)
             {
                 case ResourceScope.Tenant:
                 case ResourceScope.ManagementGroup:
@@ -88,7 +88,7 @@ namespace Bicep.Core.ApiVersion
             return cache.apiVersionsByResourceTypeName.Keys;
         }
 
-        public IEnumerable<string> GetApiVersions(ResourceScope scope, string fullyQualifiedResourceType)
+        public IEnumerable<ApiVersion> GetApiVersions(ResourceScope scope, string fullyQualifiedResourceType)
         {
             var cache = VerifyCache(scope);
 
@@ -97,12 +97,12 @@ namespace Bicep.Core.ApiVersion
                 throw new InvalidCastException($"ApiVersionProvider was unable to find any resource types for scope {scope}");
             }
 
-            if (cache.apiVersionsByResourceTypeName.TryGetValue(fullyQualifiedResourceType, out List<string>? versions))
+            if (cache.apiVersionsByResourceTypeName.TryGetValue(fullyQualifiedResourceType, out List<string>? apiVersions))
             {
-                return versions;
+                return apiVersions.Select((string version) => new ApiVersion(version));
             }
 
-            return Enumerable.Empty<string>();
+            return Enumerable.Empty<ApiVersion>();
         }
 
         private class ApiVersionCache

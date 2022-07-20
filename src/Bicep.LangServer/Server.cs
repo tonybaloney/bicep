@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Emit;
 using Bicep.Core.Features;
@@ -143,7 +143,7 @@ namespace Bicep.LanguageServer
             services.AddSingleton<IDeploymentOperationsCache, DeploymentOperationsCache>();
             services.AddSingleton<IDeploymentFileCompilationCache, DeploymentFileCompilationCache>();
             services.AddSingleton<IModuleRestoreScheduler, ModuleRestoreScheduler>();
-            services.AddSingleton<IApiVersionProvider, ApiVersionProvider>();
+            services.AddSingleton<ApiVersionProvider, ApiVersionProvider>();
             services.AddSingleton<IModuleRestoreScheduler, ModuleRestoreScheduler>();
         }
 

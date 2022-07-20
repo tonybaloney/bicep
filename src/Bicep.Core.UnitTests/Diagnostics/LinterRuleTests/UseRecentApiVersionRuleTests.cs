@@ -7,7 +7,7 @@ using System.Linq;
 using System.Reflection;
 using Bicep.Core.Analyzers.Linter;
 using Bicep.Core.Analyzers.Linter.Rules;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Json;
 using Bicep.Core.Parsing;
@@ -43,7 +43,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 apiVersionProvider: apiProvider);
         }
 
-        private static SemanticModel SemanticModel(RootConfiguration configuration, IApiVersionProvider apiVersionProvider)
+        private static SemanticModel SemanticModel(RootConfiguration configuration, ApiVersionProvider apiVersionProvider)
          => new Compilation(
                 BicepTestConstants.Features,
                 TestTypeHelper.CreateEmptyProvider(),
@@ -82,8 +82,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             {
                 var apiVersionProvider = new ApiVersionProvider();
                 apiVersionProvider.InjectTypeReferences(scope, FakeResourceTypes.GetFakeResourceTypeReferences(resourceTypes));
-                var (allVersions, allowedVersions) = UseRecentApiVersionRule.Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDate(today), maxAllowedAgeInDays, scope, fullyQualifiedResourceType);
-                allowedVersions.Should().BeEquivalentTo(expectedApiVersions, options => options.WithStrictOrdering());
+                var (_, allowedVersions) = UseRecentApiVersionRule.Visitor.GetAcceptableApiVersions(apiVersionProvider, ApiVersionHelper.ParseDateFromApiVersion(today), maxAllowedAgeInDays, scope, fullyQualifiedResourceType);
+                var allowedVersionsStrings = allowedVersions.Select(v => v.Formatted).ToArray();
+                allowedVersionsStrings.Should().BeEquivalentTo(expectedApiVersions, options => options.WithStrictOrdering());
             }
 
             [TestMethod]
@@ -719,7 +720,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 {
                     foreach (string typeName in RealApiVersionProvider.GetResourceTypeNames(scope))
                     {
-                        var apiVersionDates = RealApiVersionProvider.GetApiVersions(scope, typeName).Select(v => ApiVersionHelper.ParseDate(v));
+                        var apiVersionDates = RealApiVersionProvider.GetApiVersions(scope, typeName).Select(v => v.Date);
 
                         var datesToTest = new List<DateTime>();
                         if (Exhaustive)
@@ -788,7 +789,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             [DataTestMethod]
             [DynamicData(nameof(GetTestData), DynamicDataSourceType.Method, DynamicDataDisplayNameDeclaringType = typeof(TestData), DynamicDataDisplayName = nameof(TestData.GetDisplayName))]
-            public void GetAcceptableApiVersionsInvariants(TestData data)
+            public void Invariants(TestData data)
             {
                 var (allVersions, allowedVersions) = UseRecentApiVersionRule.Visitor.GetAcceptableApiVersions(RealApiVersionProvider, data.Today, data.MaxAllowedAgeDays, data.ResourceScope, data.FullyQualifiedResourceType);
 
@@ -798,18 +799,18 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 allVersions.Should().NotBeEmpty();
                 allowedVersions.Should().NotBeEmpty();
 
-                var stableVersions = allVersions.Where(v => ApiVersionHelper.IsStableVersion(v));
-                var recentStableVersions = stableVersions.Where(v => DateIsRecent(ApiVersionHelper.ParseDate(v), data.Today, data.MaxAllowedAgeDays));
+                var stableVersions = allVersions.Where(v => v.IsStable).ToArray();
+                var recentStableVersions = stableVersions.Where(v => DateIsRecent(v.Date, data.Today, data.MaxAllowedAgeDays)).ToArray();
 
-                var previewVersions = allVersions.Where(v => ApiVersionHelper.IsPreviewVersion(v));
-                var recentPreviewVersions = previewVersions.Where(v => DateIsRecent(ApiVersionHelper.ParseDate(v), data.Today, data.MaxAllowedAgeDays));
+                var previewVersions = allVersions.Where(v => v.IsPreview).ToArray();
+                var recentPreviewVersions = previewVersions.Where(v => DateIsRecent(v.Date, data.Today, data.MaxAllowedAgeDays)).ToArray();
 
                 // if there are any stable versions available...
                 if (stableVersions.Any())
                 {
                     // The most recent stable version is always allowed
-                    allowedVersions.Count(v => ApiVersionHelper.IsStableVersion(v)).Should().BeGreaterThan(0, "the most recent stable version is always allowed");
-                    var mostRecentStable = stableVersions.OrderBy(v => v).Last();
+                    allowedVersions.Count(v => v.IsStable).Should().BeGreaterThan(0, "the most recent stable version is always allowed");
+                    var mostRecentStable = stableVersions.OrderBy(v => v.Date).Last();
                     allowedVersions.Should().Contain(mostRecentStable, "the most recent stable version is always allowed");
 
                     // All stable versions < 2 years old are allowed
@@ -820,19 +821,19 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
                     foreach (var preview in previewVersions)
                     {
-                        var previewDate = ApiVersionHelper.ParseDate(preview);
+                        var previewDate = preview.Date;
 
                         // Any preview version more recent than the most recent stable version and < 2 years old is allowed
-                        if (DateIsRecent(ApiVersionHelper.ParseDate(preview), data.Today, data.MaxAllowedAgeDays))
+                        if (DateIsRecent(preview.Date, data.Today, data.MaxAllowedAgeDays))
                         {
-                            if (DateIsMoreRecentThan(previewDate, ApiVersionHelper.ParseDate(mostRecentStable)))
+                            if (DateIsMoreRecentThan(previewDate, mostRecentStable.Date))
                             {
                                 allowedVersions.Should().Contain(preview, "any preview version more recent than the most recent stable version and < 2 years old is allowed");
                             }
                         }
 
                         // If a preview version has a more recent or equally recent stable version, it is not allowed
-                        if (stableVersions.Any(v => DateIsEqualOrMoreRecentThan(ApiVersionHelper.ParseDate(v), previewDate)))
+                        if (stableVersions.Any(v => DateIsEqualOrMoreRecentThan(v.Date, previewDate)))
                         {
                             allowedVersions.Should().NotContain(preview, "if a preview version has a more recent or equally recent stable version, it is not allowed");
                         }
@@ -843,23 +844,23 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     // No stable versions
 
                     // If no stable versions at all, the most recent preview version is allowed, no matter its age
-                    var mostRecentPreview = previewVersions.OrderBy(v => v).Last();
+                    var mostRecentPreview = previewVersions.OrderBy(v => v.Date).Last();
                     allowedVersions.Should().Contain(mostRecentPreview, "if no stable versions at all, the most recent preview version is allowed, no matter its age");
                 }
 
                 // COROLLARIES TO THE IMPLEMENTATION RULES
 
                 // If the most recent version is a preview version that’s > 2 years old, only that one preview version is allowed
-                var mostRecent = allVersions.OrderBy(v => v).Last();
-                if (ApiVersionHelper.IsPreviewVersion(mostRecent) && DateIsOld(ApiVersionHelper.ParseDate(mostRecent), data.Today, data.MaxAllowedAgeDays))
+                var mostRecent = allVersions.OrderBy(v => v.Date).Last();
+                if (mostRecent.IsPreview && DateIsOld(mostRecent.Date, data.Today, data.MaxAllowedAgeDays))
                 {
-                    allowedVersions.Where(v => ApiVersionHelper.IsPreviewVersion(v)).Should().BeEquivalentTo(new string[] { mostRecent }, "if the most recent version is a preview version that’s > 2 years old, that one preview version is allowed");
+                    allowedVersions.Where(v => v.IsPreview).Select(v => v.Formatted).Should().BeEquivalentTo(new string[] { mostRecent.Formatted }, "if the most recent version is a preview version that’s > 2 years old, that one preview version is allowed");
                 }
 
                 // If there are no stable versions, all recent preview versions are allowed
                 if (!stableVersions.Any())
                 {
-                    allowedVersions.Should().BeEquivalentTo(previewVersions.Where(v => DateIsRecent(ApiVersionHelper.ParseDate(v), data.Today, data.MaxAllowedAgeDays)));
+                    allowedVersions.Should().BeEquivalentTo(previewVersions.Where(v => DateIsRecent(v.Date, data.Today, data.MaxAllowedAgeDays)));
                 }
             }
         }
@@ -882,7 +883,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 var semanticModel = SemanticModel(BicepTestConstants.BuiltInConfiguration, apiVersionProvider);
                 var visitor = new UseRecentApiVersionRule.Visitor(semanticModel, DateTime.Today, UseRecentApiVersionRule.MaxAllowedAgeInDays, warnNotFound: true);
 
-                var result = visitor.AnalyzeApiVersion(new TextSpan(17, 47), ResourceScope.ResourceGroup, "Whoever.whatever/whichever", currentVersion);
+                var result = visitor.AnalyzeApiVersion(new TextSpan(17, 47), ResourceScope.ResourceGroup, "Whoever.whatever/whichever", new ApiVersion(currentVersion));
 
                 if (expectedFix == null)
                 {
@@ -894,7 +895,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     result!.Value.span.Should().Be(new TextSpan(17, 47));
                     result.Value.resourceType.Should().Be("Whoever.whatever/whichever");
                     result.Value.reason.Should().Be(expectedFix.Value.reason);
-                    (string.Join(", ", result.Value.acceptableVersions)).Should().Be(expectedFix.Value.acceptableVersions);
+                    (string.Join(", ", result.Value.acceptableVersions.Select(v => v.Formatted))).Should().Be(expectedFix.Value.acceptableVersions);
                     result.Value.fixes.Should().HaveCount(1); // Right now we only create one fix
                     result.Value.fixes[0].Replacements.Should().SatisfyRespectively(r => r.Span.Should().Be(new TextSpan(17, 47)));
                     result.Value.fixes[0].Replacements.Select(r => r.Text).Should().BeEquivalentTo(new string[] { expectedFix.Value.replacement });

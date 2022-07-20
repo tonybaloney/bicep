@@ -2,20 +2,42 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace Bicep.Core.ApiVersion
+namespace Bicep.Core.ApiVersions
 {
     public static class ApiVersionHelper
     {
+        //asdfg remove unneeded
+
+
+
+
         public static StringComparer Comparer = LanguageConstants.ResourceTypeComparer;
 
         private static readonly int ApiVersionDateLength = "2000-01-01".Length;
 
         private static readonly Regex VersionPattern = new Regex(@"^((?<version>(\d{4}-\d{2}-\d{2}))(?<suffix>-(preview|alpha|beta|rc|privatepreview))?$)", RegexOptions.Compiled | RegexOptions.ExplicitCapture | RegexOptions.IgnoreCase);
+
+        //asdfg?
+        //public static (string date, string suffixWithHypen)? TryParse(string apiVersion)
+        //{
+        //    MatchCollection matches = VersionPattern.Matches(apiVersion);
+        //    if (matches.Count == 1)
+        //    {
+        //        Match match = matches[0];
+        //        string? version = match.Groups["version"].Value;
+        //        string? suffix = match.Groups["suffix"].Value;
+
+        //        if (version is not null)
+        //        {
+        //            return (version, string.IsNullOrEmpty(suffix) ? "" : suffix.ToLowerInvariant());
+        //        }
+        //    }
+
+        //    return null;
+        //}
 
         public static (string? date, string? suffixWithHypen) TryParse(string apiVersion)
         {
@@ -35,6 +57,18 @@ namespace Bicep.Core.ApiVersion
             return (null, null);
         }
 
+        public static (string date, string suffix) Parse(string apiVersion)
+        {
+            var (date, suffix) = TryParse(apiVersion);
+
+            if (date == null)
+            {
+                throw new ArgumentException($"Unexpected API version {apiVersion}");
+            }
+
+            return (date, suffix ?? String.Empty);
+        }
+
         public static string Format(DateTime date, string? suffix = null)
         {
             var result = string.Format(CultureInfo.InvariantCulture, "{0:yyyy-MM-dd}", date);
@@ -51,19 +85,24 @@ namespace Bicep.Core.ApiVersion
             return a.Substring(0, ApiVersionDateLength).CompareTo(b.Substring(0, ApiVersionDateLength));
         }
 
-        // Assumes apiVersion is a valid api-version string
-        public static bool IsPreviewVersion(string apiVersion)
+        //// Assumes apiVersion is a valid api-version string
+        //public static bool IsPreviewVersion(string apiVersion)
+        //{
+        //    return apiVersion.Length > ApiVersionDateLength;
+        //}
+
+        //// Assumes apiVersion is a valid api-version string
+        //public static bool IsStableVersion(string apiVersion)
+        //{
+        //    return !IsPreviewVersion(apiVersion);
+        //}
+
+        public static DateTime ParseDateFromString(string dateString)
         {
-            return apiVersion.Length > ApiVersionDateLength;
+            return DateTime.ParseExact(dateString, "yyyy-MM-dd", CultureInfo.InvariantCulture);
         }
 
-        // Assumes apiVersion is a valid api-version string
-        public static bool IsStableVersion(string apiVersion)
-        {
-            return !IsPreviewVersion(apiVersion);
-        }
-
-        public static DateTime ParseDate(string apiVersion)
+        public static DateTime ParseDateFromApiVersion(string apiVersion)
         {
             (string? date, string? _) = TryParse(apiVersion);
             if (date is null)
@@ -71,17 +110,17 @@ namespace Bicep.Core.ApiVersion
                 throw new Exception($"Invalid API version '{apiVersion}'");
             }
 
-            return DateTime.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+            return ParseDateFromString(date);
         }
 
-        public static IEnumerable<string> FilterPreview(IEnumerable<string> apiVersions)
-        {
-            return apiVersions.Where(v => ApiVersionHelper.IsPreviewVersion(v)).ToArray();
-        }
+        //public static IEnumerable<string> FilterPreview(IEnumerable<string> apiVersions)
+        //{
+        //    return apiVersions.Where(v => ApiVersionHelper.IsPreviewVersion(v)).ToArray();
+        //}
 
-        public static IEnumerable<string> FilterNonPreview(IEnumerable<string> apiVersions)
-        {
-            return apiVersions.Where(v => !ApiVersionHelper.IsPreviewVersion(v)).ToArray();
-        }
+        //public static IEnumerable<string> FilterNonPreview(IEnumerable<string> apiVersions)
+        //{
+        //    return apiVersions.Where(v => !ApiVersionHelper.IsPreviewVersion(v)).ToArray();
+        //}
     }
 }

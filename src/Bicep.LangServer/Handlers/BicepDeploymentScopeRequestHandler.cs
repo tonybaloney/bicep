@@ -9,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Bicep.Core;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
@@ -50,7 +50,7 @@ namespace Bicep.LanguageServer.Handlers
         private readonly IFileResolver fileResolver;
         private readonly IModuleDispatcher moduleDispatcher;
         private readonly INamespaceProvider namespaceProvider;
-        private readonly IApiVersionProvider apiVersionProvider;
+        private readonly ApiVersionProvider apiVersionProvider;
 
         public BicepDeploymentScopeRequestHandler(
             EmitterSettings emitterSettings,
@@ -62,7 +62,7 @@ namespace Bicep.LanguageServer.Handlers
             IModuleDispatcher moduleDispatcher,
             INamespaceProvider namespaceProvider,
             ISerializer serializer,
-            IApiVersionProvider apiVersionProvider)
+            ApiVersionProvider apiVersionProvider)
             : base(LangServerConstants.GetDeploymentScopeCommand, serializer)
         {
             this.compilationManager = compilationManager;

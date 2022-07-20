@@ -3,13 +3,13 @@
 
 using System;
 using System.Linq;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.TypeSystem;
 using Bicep.Core.UnitTests.Diagnostics.LinterRuleTests;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Bicep.Core.UnitTests.ApiVersion
+namespace Bicep.Core.UnitTests.ApiVersions
 {
     [TestClass]
     public class ApiVersionProviderTests
@@ -25,7 +25,7 @@ namespace Bicep.Core.UnitTests.ApiVersion
             var apiVersionProvider = new ApiVersionProvider();
             apiVersionProvider.InjectTypeReferences(ResourceScope.ResourceGroup, FakeResourceTypes.GetFakeResourceTypeReferences(FakeResourceTypes.ResourceScopeTypes));
 
-            string[] actual = apiVersionProvider.GetApiVersions(ResourceScope.ResourceGroup, fullyQualifiedName).ToArray();
+            string[] actual = apiVersionProvider.GetApiVersions(ResourceScope.ResourceGroup, fullyQualifiedName).Select(v => v.Formatted).ToArray();
 
             actual.Should().BeEquivalentTo(expected);
         }

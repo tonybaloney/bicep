@@ -21,7 +21,7 @@ using Bicep.Core.Features;
 using Bicep.Core.Configuration;
 using IOFileSystem = System.IO.Abstractions.FileSystem;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 
 namespace Bicep.Wasm
 {

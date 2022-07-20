@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
@@ -44,7 +44,7 @@ namespace Bicep.Core.UnitTests.Utils
             EmitterSettings? EmitterSettings = null,
             INamespaceProvider? NamespaceProvider = null,
             RootConfiguration? Configuration = null,
-            IApiVersionProvider? ApiVersionProvider = null)
+            ApiVersionProvider? ApiVersionProvider = null)
         {
             // TODO: can we use IoC here instead of DIY-ing it?
 
@@ -63,7 +63,7 @@ namespace Bicep.Core.UnitTests.Utils
             public RootConfiguration GetConfiguration()
                 => Configuration ?? BicepTestConstants.BuiltInConfiguration;
 
-            public IApiVersionProvider GetApiVersionProvider()
+            public ApiVersionProvider GetApiVersionProvider()
                 => ApiVersionProvider ?? BicepTestConstants.ApiVersionProvider;
         }
 

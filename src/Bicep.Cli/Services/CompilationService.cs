@@ -3,7 +3,7 @@
 
 using Bicep.Cli.Logging;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Extensions;
@@ -30,7 +30,7 @@ namespace Bicep.Cli.Services
         private readonly InvocationContext invocationContext;
         private readonly Workspace workspace;
         private readonly TemplateDecompiler decompiler;
-        private readonly IApiVersionProvider apiVersionProvider;
+        private readonly ApiVersionProvider apiVersionProvider;
 
         public CompilationService(
             IDiagnosticLogger diagnosticLogger,
@@ -39,7 +39,7 @@ namespace Bicep.Cli.Services
             IModuleDispatcher moduleDispatcher,
             IConfigurationManager configurationManager,
             TemplateDecompiler decompiler,
-            IApiVersionProvider apiVersionProvider)
+            ApiVersionProvider apiVersionProvider)
         {
             this.diagnosticLogger = diagnosticLogger;
             this.fileResolver = fileResolver;

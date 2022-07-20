@@ -2,11 +2,11 @@
 // Licensed under the MIT License.
 
 using System;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Bicep.Core.UnitTests.ApiVersion
+namespace Bicep.Core.UnitTests.ApiVersions
 {
     [TestClass]
     public class ApiVersionHelperTests

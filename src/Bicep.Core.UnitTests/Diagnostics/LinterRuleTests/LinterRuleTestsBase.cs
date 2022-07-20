@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Text;
@@ -67,7 +67,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             return files.ToArray();
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null, IApiVersionProvider? apiVersionProvider = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors, diags =>
             {
@@ -79,7 +79,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             apiVersionProvider);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, RootConfiguration? configuration = null, IApiVersionProvider? apiVersionProvider = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors,  diags =>
             {
@@ -89,12 +89,12 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             apiVersionProvider);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, IApiVersionProvider? apiVersionProvider = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, OnCompileErrors.IncludeErrors, assertAction, configuration, apiVersionProvider);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, IApiVersionProvider? apiVersionProvider = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             RunWithDiagnosticAnnotations(
                 bicepText,
@@ -107,7 +107,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 apiVersionProvider);
         }
 
-        private static void RunWithDiagnosticAnnotations(string bicepText, Func<IDiagnostic, bool> filterFunc, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration, IApiVersionProvider? apiVersionProvider)
+        private static void RunWithDiagnosticAnnotations(string bicepText, Func<IDiagnostic, bool> filterFunc, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration, ApiVersionProvider? apiVersionProvider)
         {
             var context = new CompilationHelper.CompilationHelperContext(Configuration: configuration, ApiVersionProvider: apiVersionProvider);
             var result = CompilationHelper.Compile(context, bicepText);

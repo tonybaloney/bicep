@@ -12,7 +12,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Bicep.Core;
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersion;
+using Bicep.Core.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
@@ -69,14 +69,14 @@ namespace Bicep.LanguageServer.Snippets
             "properties"
         };
         private readonly IFeatureProvider features;
-        private readonly IApiVersionProvider apiVersionProvider;
+        private readonly ApiVersionProvider apiVersionProvider;
         private readonly INamespaceProvider namespaceProvider;
         private readonly IFileResolver fileResolver;
         private readonly RootConfiguration configuration;
         private readonly LinterAnalyzer linterAnalyzer;
         private readonly IConfigurationManager configurationManager;
 
-        public SnippetsProvider(IFeatureProvider features, INamespaceProvider namespaceProvider, IFileResolver fileResolver, IConfigurationManager configurationManager, IApiVersionProvider apiVersionProvider)
+        public SnippetsProvider(IFeatureProvider features, INamespaceProvider namespaceProvider, IFileResolver fileResolver, IConfigurationManager configurationManager, ApiVersionProvider apiVersionProvider)
         {
             this.features = features;
             this.apiVersionProvider = apiVersionProvider;
