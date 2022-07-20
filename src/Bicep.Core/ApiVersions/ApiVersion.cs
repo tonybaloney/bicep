@@ -39,7 +39,5 @@ namespace Bicep.Core.ApiVersions
         public bool IsStable => Suffix.Length == 0;
 
         public string Formatted => ApiVersionHelper.Format(Date, Suffix);
-
-        //asdfg test equality comparison/strutural comparison
     }
 }

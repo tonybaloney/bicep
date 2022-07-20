@@ -115,14 +115,6 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             public (TextSpan span, string resourceType, string reason, ApiVersion[] acceptableVersions, CodeFix[] fixes)?
                 AnalyzeApiVersion(TextSpan replacementSpan, ResourceScope scope, string fullyQualifiedResourceType, ApiVersion actualApiVersion)
             {
-                //asdfg?
-                //(string? currentApiDate, _) = ApiVersionHelper.TryParse(actualApiVersion);
-                //if (currentApiDate is null)
-                //{
-                //    // The API version is not valid. Bicep will show an error, so we don't normally want to show anything else
-                //    return null;
-                //}
-
                 var (allApiVersions, acceptableApiVersions) = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, scope, fullyQualifiedResourceType);
                 if (!allApiVersions.Any())
                 {
@@ -199,13 +191,11 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     return (allVersions, Array.Empty<ApiVersion>());
                 }
 
-                //asdfg var oldestAcceptableDate = GetOldestAcceptableDate(today, maxAllowedAgeInDays);
+                var stableVersionsSorted = FilterStable(allVersions).OrderBy(v => v.Date).ToArray();
+                var previewVersionsSorted = FilterPreview(allVersions).OrderBy(v => v.Date).ToArray();
 
-                var stableVersionsSorted = FilterStable(allVersions).ToArray(); //asdfg sort
-                var previewVersionsSorted = FilterPreview(allVersions).ToArray();//asdfg sort
-
-                var recentStableVersionsSorted = FilterRecentVersions(stableVersionsSorted, today, maxAllowedAgeInDays).ToArray();
-                var recentPreviewVersionsSorted = FilterRecentVersions(previewVersionsSorted, today, maxAllowedAgeInDays).ToArray();
+                var recentStableVersionsSorted = FilterRecent(stableVersionsSorted, today, maxAllowedAgeInDays).ToArray();
+                var recentPreviewVersionsSorted = FilterRecent(previewVersionsSorted, today, maxAllowedAgeInDays).ToArray();
 
                 // Start with all recent stable versions
                 List<ApiVersion> acceptableVersions = recentStableVersionsSorted.ToList();
@@ -293,46 +283,21 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return Array.Empty<ApiVersion>();
             }
 
-            //asdfg
-            //// Returns just the date string, not an entire apiVersion
-            //private static IEnumerable<string> FilterApiVersionsNewerThanDate(IEnumerable<string> apiVersions, string date)
-            //{
-            //    return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) > 0);
-            //}
-
-            //private static IEnumerable<string> FilterApiVersionsNewerOrEqualToDate(IEnumerable<string> apiVersions, string date)
-            //{
-            //    return apiVersions.Where(v => ApiVersionHelper.CompareApiVersionDates(v, date) >= 0);
-            //}
-
-            // Returns just the date string, not an entire apiVersion
             private static IEnumerable<ApiVersion> FilterMatchingDate(IEnumerable<ApiVersion> apiVersions, DateTime date)
             {
                 Debug.Assert(date == date.Date);
                 return apiVersions.Where(v => v.Date == date);
             }
 
-            //asdfg
-            //private static bool IsRecent(string apiVersion, DateTime today, int maxAllowedAgeInDays)
-            //{
-            //    var oldestAcceptableDate = GetOldestAcceptableDate(today, maxAllowedAgeInDays);
-            //    return ApiVersionHelper.CompareApiVersionDates(apiVersion, oldestAcceptableDate) >= 0;
-            //}
-
             private static bool IsRecent(ApiVersion apiVersion, DateTime today, int maxAllowedAgeInDays)
             {
                 return apiVersion.Date >= today.AddDays(-maxAllowedAgeInDays);
             }
 
-            private static IEnumerable<ApiVersion> FilterRecentVersions(IEnumerable<ApiVersion> apiVersions, DateTime today, int maxAllowedAgeInDays)
+            private static IEnumerable<ApiVersion> FilterRecent(IEnumerable<ApiVersion> apiVersions, DateTime today, int maxAllowedAgeInDays)
             {
                 return apiVersions.Where(v => IsRecent(v, today, maxAllowedAgeInDays));
             }
-
-            //private static string GetOldestAcceptableDate(DateTime today, int maxAllowedAgeInDays)
-            //{
-            //    return ApiVersionHelper.Format(today.AddDays(-maxAllowedAgeInDays), null);
-            //}
 
             private static IEnumerable<ApiVersion> FilterPreview(IEnumerable<ApiVersion> apiVersions)
             {

@@ -11,33 +11,6 @@ namespace Bicep.Core.UnitTests.ApiVersions
     [TestClass]
     public class ApiVersionHelperTests
     {
-        [DataTestMethod]
-        // d1 < d2
-        [DataRow("2000-01-01", "2001-01-01", -1)]
-        [DataRow("2000-01-01", "2000-01-02", -1)]
-        [DataRow("1999-12-31", "2000-01-01", -1)]
-        [DataRow("2000-01-01-beta", "2001-01-01", -1)]
-        [DataRow("2000-01-01-beta", "2001-01-01-alpha", -1)]
-        [DataRow("2000-01-01", "2001-01-01-alpha", -1)]
-        // d1 > d2
-        [DataRow("2001-01-01", "2000-01-01", 1)]
-        [DataRow("2000-01-02", "2000-01-01", 1)]
-        [DataRow("2000-01-01", "1999-12-31", 1)]
-        [DataRow("2001-01-01", "2000-01-01-preview", 1)]
-        [DataRow("2001-01-01-privewpreview", "2000-01-01-beta", 1)]
-        [DataRow("2001-01-01-rc", "2000-01-01", 1)]
-        // d1 = d2
-        [DataRow("2001-01-01", "2001-01-01", 0)]
-        [DataRow("1999-12-31", "1999-12-31", 0)]
-        [DataRow("1999-12-31-alpha", "1999-12-31", 0)]
-        [DataRow("1999-12-31-alpha", "1999-12-31-preview", 0)]
-        [DataRow("1999-12-31", "1999-12-31", 0)]
-        public void CompareApiVersionDates(string date1, string date2, int expectedResult)
-        {
-            int result = ApiVersionHelper.CompareApiVersionDates(date1, date2);
-            result.Should().Be(expectedResult);
-        }
-
         [DataRow(2001, 1, 1, null, "2001-01-01")]
         [DataRow(2000, 1, 1, "", "2000-01-01")]
         [DataRow(2000, 01, 01, "-alpha", "2000-01-01-alpha")]
