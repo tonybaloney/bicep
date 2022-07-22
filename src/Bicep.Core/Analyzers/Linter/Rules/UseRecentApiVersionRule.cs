@@ -22,8 +22,12 @@ namespace Bicep.Core.Analyzers.Linter.Rules
         public new const string Code = "use-recent-api-version";
         public const int MaxAllowedAgeInDays = 365 * 2;
 
-        private DateTime today = DateTime.Today; // Debug/test switch: Pretend today is a different date
-        private bool warnNotFound = false; // Debug/test switch: Warn if the resource type or API version are not found
+        // Debug/test switch: Pretend today is a different date
+        private DateTime today = DateTime.Today;
+
+        // Debug/test switch: Warn if the resource type or API version are not found (normally we don't
+        // give errors for these because Bicep always provides a warning about types not being available)
+        private bool warnNotFound = false;
 
         public UseRecentApiVersionRule() : base(
             code: Code,
@@ -55,9 +59,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             var resourceType = (string)values[0];
             var reason = (string)values[1];
             var acceptableVersions = (ApiVersion[])values[2];
+
             var acceptableVersionsString = string.Join(", ", acceptableVersions.Select(v => v.Formatted));
-            return
-                string.Format(CoreResources.UseRecentApiVersionRule_ErrorMessageFormat, resourceType)
+            return string.Format(CoreResources.UseRecentApiVersionRule_ErrorMessageFormat, resourceType)
                 + (" " + reason)
                 + (acceptableVersionsString.Any() ? " " + string.Format(CoreResources.UseRecentApiVersionRule_AcceptableVersions, acceptableVersionsString) : "");
         }
@@ -65,8 +69,8 @@ namespace Bicep.Core.Analyzers.Linter.Rules
         override public IEnumerable<IDiagnostic> AnalyzeInternal(SemanticModel model)
         {
             var visitor = new Visitor(model, today, UseRecentApiVersionRule.MaxAllowedAgeInDays, warnNotFound);
-            visitor.Visit(model.SourceFile.ProgramSyntax);
 
+            visitor.Visit(model.SourceFile.ProgramSyntax);
             return visitor.Failures.Select(fix => CreateFixableDiagnosticForSpan(fix.span, fix.fixes, fix.resourceType, fix.reason, fix.acceptableVersions));
         }
 
@@ -118,7 +122,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 var (allApiVersions, acceptableApiVersions) = GetAcceptableApiVersions(apiVersionProvider, today, maxAllowedAgeInDays, scope, fullyQualifiedResourceType);
                 if (!allApiVersions.Any())
                 {
-                    // Resource type not recognized. Bicep will show a warning, so we don't normally want to show anything else
+                    // Resource type not recognized
                     if (warnNotFound)
                     {
                         return (replacementSpan, fullyQualifiedResourceType, $"Could not find resource type {fullyQualifiedResourceType}", Array.Empty<ApiVersion>(), Array.Empty<CodeFix>());
@@ -135,7 +139,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
                 if (!allApiVersions.Contains(actualApiVersion))
                 {
-                    // apiVersion for resource type not recognized. Bicep will show a warning, so we don't want to show anything else
+                    // apiVersion for resource type not recognized.
                     if (warnNotFound)
                     {
                         return CreateFailure(replacementSpan, fullyQualifiedResourceType, actualApiVersion, $"Could not find apiVersion {actualApiVersion.Formatted} for {fullyQualifiedResourceType}", acceptableApiVersions);
@@ -144,13 +148,13 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     return null;
                 }
 
-                // At this point, the rule has failed. Question is, why...
+                // At this point, the rule has failed. Just need to determine reason for failure, for the message.
                 string? failureReason = null;
 
-                // Is it because the version is recent but is preview, and there's a newer stable version available?
+                // Is it because the version is recent but in preview, and there's a newer stable version available?
                 if (actualApiVersion.IsPreview && IsRecent(actualApiVersion, today, maxAllowedAgeInDays))
                 {
-                    var mostRecentStableVersion = GetNewestDate(FilterStable(allApiVersions));
+                    var mostRecentStableVersion = GetNewestDateOrNull(FilterStable(allApiVersions));
                     if (mostRecentStableVersion is not null)
                     {
                         var comparison = DateTime.Compare(actualApiVersion.Date, mostRecentStableVersion.Value);
@@ -166,7 +170,6 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                         }
                     }
                 }
-
                 if (failureReason is null)
                 {
                     int ageInDays = today.Subtract(actualApiVersion.Date).Days;
@@ -206,12 +209,12 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     acceptableVersions.AddRange(FilterMostRecentApiVersion(stableVersionsSorted));
                 }
 
-                // Add all recent (not old) preview versions that are newer than the newest stable version, if any
-                var mostRecentStableDate = GetNewestDate(stableVersionsSorted);
+                // Add any recent (not old) preview versions that are newer than the newest stable version
+                var mostRecentStableDate = GetNewestDateOrNull(stableVersionsSorted);
                 if (mostRecentStableDate != null)
                 {
                     Debug.Assert(stableVersionsSorted.Any(), "There should have been at least one stable version since mostRecentStableDate != null");
-                    var previewsNewerThanMostRecentStable = recentPreviewVersionsSorted.Where(v => IsMoreRecent(v.Date, mostRecentStableDate.Value));
+                    var previewsNewerThanMostRecentStable = recentPreviewVersionsSorted.Where(v => IsMoreRecentThan(v.Date, mostRecentStableDate.Value));
                     acceptableVersions.AddRange(previewsNewerThanMostRecentStable);
                 }
                 else
@@ -227,6 +230,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     }
                 }
 
+                // Sort
                 var acceptableVersionsSorted = acceptableVersions
                     .OrderByDescending(v => v.Date) // first by date
                     .ThenBy(v => v.IsStable ? 0 : 1) // then stable/preview (stable first)
@@ -237,6 +241,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return (allVersions, acceptableVersionsSorted);
             }
 
+            // Find the portion of the resource.type@api-version string that corresponds to the api version
             private TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
             {
                 if (resourceSymbol.DeclaringResource.TypeString is StringSyntax typeString &&
@@ -250,10 +255,11 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return null;
             }
 
-            private (TextSpan span, string resourceType, string reason, ApiVersion[] acceptableVersions, CodeFix[] fixes)
-                CreateFailure(TextSpan span, string fullyQualifiedResourceType, ApiVersion actualApiVersion, string reason, ApiVersion[] acceptableApiVersions)
+            private (TextSpan span, string resourceType, string reason, ApiVersion[] acceptableVersionsSorted, CodeFix[] fixes)
+            CreateFailure(TextSpan span, string fullyQualifiedResourceType, ApiVersion actualApiVersion, string reason, ApiVersion[] acceptableVersionsSorted)
             {
-                var preferredVersion = acceptableApiVersions[0];
+                // For now, always choose the most recent for the suggested auto-fix
+                var preferredVersion = acceptableVersionsSorted[0];
                 var codeReplacement = new CodeReplacement(span, preferredVersion.Formatted);
 
                 var fix = new CodeFix(
@@ -262,38 +268,40 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     CodeFixKind.QuickFix,
                     codeReplacement);
 
-                return (span, fullyQualifiedResourceType, reason, acceptableApiVersions, new CodeFix[] { fix });
+                return (span, fullyQualifiedResourceType, reason, acceptableVersionsSorted, new CodeFix[] { fix });
             }
 
-            private static DateTime? GetNewestDate(IEnumerable<ApiVersion> apiVersions)
+            private static DateTime? GetNewestDateOrNull(IEnumerable<ApiVersion> apiVersions)
             {
                 return apiVersions.Any() ? apiVersions.Max(v => v.Date) : null;
             }
 
             // Retrieves the most recent API version (this could be more than one if there are multiple apiVersions
-            //   with the same, most recent date)
+            //   with the same, most recent date, but different suffixes)
             private static IEnumerable<ApiVersion> FilterMostRecentApiVersion(IEnumerable<ApiVersion> apiVersions)
             {
-                var mostRecentDate = GetNewestDate(apiVersions);
+                var mostRecentDate = GetNewestDateOrNull(apiVersions);
                 if (mostRecentDate is not null)
                 {
-                    return FilterMatchingDate(apiVersions, mostRecentDate.Value);
+                    return FilterByDateEquals(apiVersions, mostRecentDate.Value);
                 }
 
                 return Array.Empty<ApiVersion>();
             }
 
-            private static IEnumerable<ApiVersion> FilterMatchingDate(IEnumerable<ApiVersion> apiVersions, DateTime date)
+            private static IEnumerable<ApiVersion> FilterByDateEquals(IEnumerable<ApiVersion> apiVersions, DateTime date)
             {
                 Debug.Assert(date == date.Date);
                 return apiVersions.Where(v => v.Date == date);
             }
 
+            // Recent meaning < maxAllowedAgeInDays old
             private static bool IsRecent(ApiVersion apiVersion, DateTime today, int maxAllowedAgeInDays)
             {
                 return apiVersion.Date >= today.AddDays(-maxAllowedAgeInDays);
             }
 
+             // Recent meaning < maxAllowedAgeInDays old
             private static IEnumerable<ApiVersion> FilterRecent(IEnumerable<ApiVersion> apiVersions, DateTime today, int maxAllowedAgeInDays)
             {
                 return apiVersions.Where(v => IsRecent(v, today, maxAllowedAgeInDays));
@@ -309,7 +317,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return apiVersions.Where(v => v.IsStable);
             }
 
-            private static bool IsMoreRecent(DateTime date, DateTime other)
+            private static bool IsMoreRecentThan(DateTime date, DateTime other)
             {
                 return DateTime.Compare(date, other) > 0;
             }

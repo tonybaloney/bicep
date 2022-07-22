@@ -23,7 +23,7 @@ namespace Bicep.Core.ApiVersions
         }
 
         public ApiVersion(string apiVersion)
-            : this(ApiVersionHelper.Parse(apiVersion))
+            : this(ApiVersionHelper.MustParse(apiVersion))
         {
         }
 

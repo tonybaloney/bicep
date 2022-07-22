@@ -18,6 +18,7 @@ namespace Bicep.Core.ApiVersions
     {
         private static StringComparer Comparer = LanguageConstants.ResourceTypeComparer;
 
+        // One cache per target scope type
         private Dictionary<ResourceScope, ApiVersionCache> _caches = new();
 
         public ApiVersionProvider()
@@ -57,7 +58,7 @@ namespace Bicep.Core.ApiVersions
             }
         }
 
-        private ApiVersionCache VerifyCache(ResourceScope scope)
+        private ApiVersionCache EnsureCached(ResourceScope scope)
         {
             var cache = GetCache(scope);
             if (cache.typesCached)
@@ -84,13 +85,13 @@ namespace Bicep.Core.ApiVersions
 
         public IEnumerable<string> GetResourceTypeNames(ResourceScope scope)
         {
-            var cache = VerifyCache(scope);
+            var cache = EnsureCached(scope);
             return cache.apiVersionsByResourceTypeName.Keys;
         }
 
         public IEnumerable<ApiVersion> GetApiVersions(ResourceScope scope, string fullyQualifiedResourceType)
         {
-            var cache = VerifyCache(scope);
+            var cache = EnsureCached(scope);
 
             if (!cache.apiVersionsByResourceTypeName.Any())
             {
@@ -118,11 +119,14 @@ namespace Bicep.Core.ApiVersions
 
                 foreach (var resourceTypeReference in resourceTypeReferences)
                 {
-                    var (apiVersion, suffix) = resourceTypeReference.ApiVersion != null ? ApiVersionHelper.TryParse(resourceTypeReference.ApiVersion) : (null, null);
+                    var (apiVersion, suffix) = 
+                        resourceTypeReference.ApiVersion != null ?
+                        ApiVersionHelper.TryParse(resourceTypeReference.ApiVersion) :
+                        (null, null);
                     if (apiVersion is not null)
                     {
                         string fullyQualifiedType = resourceTypeReference.FormatType();
-                        UpdateCache(apiVersionsByResourceTypeName, suffix == null ? apiVersion : (apiVersion + suffix) /* suffix will have been lower-cased */, fullyQualifiedType);
+                        AddApiVersionToCache(apiVersionsByResourceTypeName, suffix == null ? apiVersion : (apiVersion + suffix) /* suffix will have been lower-cased */, fullyQualifiedType);
                     }
                     else
                     {
@@ -134,7 +138,7 @@ namespace Bicep.Core.ApiVersions
                 apiVersionsByResourceTypeName = apiVersionsByResourceTypeName.ToDictionary(x => x.Key, x => x.Value.OrderBy(y => y).ToList(), Comparer);
             }
 
-            private void UpdateCache(Dictionary<string, List<string>> listOfTypes, string apiVersion, string fullyQualifiedType)
+            private void AddApiVersionToCache(Dictionary<string, List<string>> listOfTypes, string apiVersion, string fullyQualifiedType)
             {
                 if (listOfTypes.TryGetValue(fullyQualifiedType, out List<string>? value))
                 {

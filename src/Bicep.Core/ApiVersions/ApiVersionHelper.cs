@@ -9,6 +9,7 @@ namespace Bicep.Core.ApiVersions
 {
     public static class ApiVersionHelper
     {
+        // Resource types are case-insensitive in ARM
         public static StringComparer Comparer = LanguageConstants.ResourceTypeComparer;
 
         private static readonly Regex VersionPattern = new Regex(@"^((?<version>(\d{4}-\d{2}-\d{2}))(?<suffix>-(preview|alpha|beta|rc|privatepreview))?$)", RegexOptions.Compiled | RegexOptions.ExplicitCapture | RegexOptions.IgnoreCase);
@@ -31,7 +32,7 @@ namespace Bicep.Core.ApiVersions
             return (null, null);
         }
 
-        public static (string date, string suffix) Parse(string apiVersion)
+        public static (string date, string suffix) MustParse(string apiVersion)
         {
             var (date, suffix) = TryParse(apiVersion);
 
