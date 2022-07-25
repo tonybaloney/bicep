@@ -1807,40 +1807,6 @@ resource rg3 'Microsoft.Resources/resourceGroups@2020-10-01' = if (rg2[0].tags.f
         }
 
         [TestMethod]
-        // https://github.com/Azure/bicep/issues/2262
-        public void Test_Issue2262()
-        {
-            // Wrong discriminated key: PartitionScheme.
-            var result = CompilationHelper.Compile(@"
-resource service 'Microsoft.ServiceFabric/clusters/applications/services@2021-06-01' = {
-  name: 'myCluster/myApp/myService'
-  properties: {
-    serviceKind: 'Stateful'
-    partitionDescription: {
-      PartitionScheme: 'Named'
-      names: [
-        'foo'
-      ]
-      count: 1
-    }
-  }
-}
-");
-
-            result.Should().HaveDiagnostics(new[] {
-                ("BCP078", DiagnosticLevel.Warning, "The property \"partitionScheme\" requires a value of type \"'Named' | 'Singleton' | 'UniformInt64Range'\", but none was supplied."),
-                ("BCP089", DiagnosticLevel.Warning, "The property \"PartitionScheme\" is not allowed on objects of type \"'Named' | 'Singleton' | 'UniformInt64Range'\". Did you mean \"partitionScheme\"?"),
-            });
-
-            var diagnosticWithCodeFix = result.Diagnostics.OfType<FixableDiagnostic>().Single();
-            var codeFix = diagnosticWithCodeFix.Fixes.Single();
-            var codeReplacement = codeFix.Replacements.Single();
-
-            codeReplacement.Span.Should().Be(new TextSpan(204, 15));
-            codeReplacement.Text.Should().Be("partitionScheme");
-        }
-
-        [TestMethod]
         // https://github.com/Azure/bicep/issues/2484
         public void Test_Issue2484()
         {
