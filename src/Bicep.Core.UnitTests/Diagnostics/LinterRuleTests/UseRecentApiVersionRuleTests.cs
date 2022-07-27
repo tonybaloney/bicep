@@ -27,7 +27,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
         }
 
-        private void CompileAndTestWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, params string[] expectedMessagesForCode)
+        private void CompileAndTestWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, string[] expectedMessagesForCode)
         {
             // Test with the linter thinking today's date is fakeToday and also fake resource types from FakeResourceTypes
             // Note: The compiler does not know about these fake types, only the linter.
@@ -709,6 +709,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             private static IEnumerable<object[]> GetTestData()
             {
                 const int maxAllowedAgeDays = 2 * 365;
+                const int maxResourcesToTest = 500; // test is slow
 
                 foreach (ResourceScope scope in new ResourceScope[]
                     {
@@ -718,7 +719,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                         ResourceScope.Subscription,
                     })
                 {
-                    foreach (string typeName in RealApiVersionProvider.GetResourceTypeNames(scope))
+                    foreach (string typeName in RealApiVersionProvider.GetResourceTypeNames(scope).Take(maxResourcesToTest))
                     {
                         var apiVersionDates = RealApiVersionProvider.GetApiVersions(scope, typeName).Select(v => v.Date);
 
@@ -1277,7 +1278,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                        "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "[1] Use more recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-12-01");
+                new[] {
+                    "[1] Use more recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-12-01",
+                });
         }
 
         [TestMethod]
@@ -1306,7 +1309,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                        "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "[1] Use more recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-12-02");
+                new[] {
+                    "[1] Use more recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-12-02",
+                });
         }
 
         [TestMethod]
@@ -1335,7 +1340,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "Fake.DBforMySQL/servers@2417-12-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "[1] Use more recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-11-30");
+                new[] {
+                    "[1] Use more recent API version for 'fake.DBforMySQL/servers'. '2417-12-01-preview' is 1676 days old, should be no more than 730 days old. Acceptable versions: 2417-11-30",
+                });
         }
 
         [TestMethod]
@@ -1357,7 +1364,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                        "Fake.DevTestLab/schedules@2417-06-01-preview",
                        "Fake.DevTestLab/schedules@2417-08-01-preview",
                 },
-                fakeToday: "2422-07-04");
+                fakeToday: "2422-07-04",
+                new string[] { });
         }
 
         [TestMethod]
@@ -1378,7 +1386,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                        "Fake.MachineLearningCompute/operationalizationClusters@2417-08-01-preview",
                 },
                 fakeToday: "2422-07-04",
-                "[1] Use more recent API version for 'Fake.MachineLearningCompute/operationalizationClusters'. '2417-06-01-preview' is 1859 days old, should be no more than 730 days old. Acceptable versions: 2417-08-01-preview");
+                new[] {
+                    "[1] Use more recent API version for 'Fake.MachineLearningCompute/operationalizationClusters'. '2417-06-01-preview' is 1859 days old, should be no more than 730 days old. Acceptable versions: 2417-08-01-preview",
+                });
         }
 
         [TestMethod]
@@ -1444,7 +1454,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     }",
                 ResourceScope.ResourceGroup,
                 FakeResourceTypes.ResourceScopeTypes,
-                "2422-07-04");
+                "2422-07-04",
+                new string[] { });
         }
 
         [TestMethod]
@@ -1480,7 +1491,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     }",
                     ResourceScope.Subscription,
                     FakeResourceTypes.SubscriptionScopeTypes,
-                    "2422-07-04"
+                    "2422-07-04",
+                    new string[] { }
                 );
         }
 
@@ -1518,7 +1530,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     ResourceScope.Subscription,
                     FakeResourceTypes.SubscriptionScopeTypes,
                     "2422-07-04",
-                    "[20] Use more recent API version for 'fake.Authorization/roleAssignments'. '2417-10-01-preview' is 1737 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2417-09-01"
+                    new[] {
+                        "[20] Use more recent API version for 'fake.Authorization/roleAssignments'. '2417-10-01-preview' is 1737 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2417-09-01",
+                    }
                 );
         }
 
@@ -1571,8 +1585,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 ResourceScope.ResourceGroup,
                 FakeResourceTypes.ResourceScopeTypes,
                 "2422-07-04",
-                "[23] Use more recent API version for 'fake.Storage/storageAccounts'. '2420-08-01-preview' is a preview version and there is a more recent non-preview version available. Acceptable versions: 2421-06-01, 2421-04-01, 2421-02-01, 2421-01-01",
-                "[34] Use more recent API version for 'fake.Authorization/roleAssignments'. '2420-04-01-preview' is 824 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2415-07-01");
+                new[] {
+                    "[23] Use more recent API version for 'fake.Storage/storageAccounts'. '2420-08-01-preview' is a preview version and there is a more recent non-preview version available. Acceptable versions: 2421-06-01, 2421-04-01, 2421-02-01, 2421-01-01",
+                    "[34] Use more recent API version for 'fake.Authorization/roleAssignments'. '2420-04-01-preview' is 824 days old, should be no more than 730 days old. Acceptable versions: 2420-10-01-preview, 2420-08-01-preview, 2415-07-01",
+                });
         }
 
         [TestMethod]
@@ -1595,7 +1611,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                  ResourceScope.ResourceGroup,
                  FakeResourceTypes.ResourceScopeTypes,
                  "2422-07-04",
-                 "[5] Use more recent API version for 'fake.Authorization/locks'. '2416-09-01' is 2132 days old, should be no more than 730 days old. Acceptable versions: 2420-05-01");
+                 new[] {
+                    "[5] Use more recent API version for 'fake.Authorization/locks'. '2416-09-01' is 2132 days old, should be no more than 730 days old. Acceptable versions: 2420-05-01",
+                 });
         }
 
         [TestMethod]
@@ -1614,7 +1632,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 ResourceScope.Subscription,
                 FakeResourceTypes.SubscriptionScopeTypes,
                 "2422-07-04",
-                "[6] Use more recent API version for 'fake.Resources/resourceGroups'. '2419-05-10' is 1151 days old, should be no more than 730 days old. Acceptable versions: 2421-05-01, 2421-04-01, 2421-01-01, 2420-10-01, 2420-08-01");
+                new[] {
+                    "[6] Use more recent API version for 'fake.Resources/resourceGroups'. '2419-05-10' is 1151 days old, should be no more than 730 days old. Acceptable versions: 2421-05-01, 2421-04-01, 2421-01-01, 2420-10-01, 2420-08-01"
+                });
         }
 
         [TestMethod]
@@ -1632,7 +1652,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     }",
                 ResourceScope.Subscription,
                 FakeResourceTypes.SubscriptionScopeTypes,
-                "2422-07-04");
+                "2422-07-04",
+                new string[] { });
         }
 
         [TestMethod]
