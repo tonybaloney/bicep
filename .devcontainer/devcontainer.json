@@ -18,5 +18,8 @@
     "dotnet": {
       "version": "6.0"
     }
+  },
+  "remoteEnv": {
+    "BICEP_LAMBDAS_ENABLED_EXPERIMENTAL": "true"
   }
 }
