@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using System;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.Analyzers.Linter.ApiVersions;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 

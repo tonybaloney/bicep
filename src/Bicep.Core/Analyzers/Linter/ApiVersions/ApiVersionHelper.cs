@@ -5,7 +5,7 @@ using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.Analyzers.Linter.ApiVersions
 {
     public static class ApiVersionHelper
     {

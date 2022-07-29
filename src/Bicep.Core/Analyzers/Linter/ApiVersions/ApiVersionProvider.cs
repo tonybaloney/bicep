@@ -12,7 +12,7 @@ using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.TypeSystem.Az;
 using ResourceScope = Bicep.Core.TypeSystem.ResourceScope;
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.Analyzers.Linter.ApiVersions
 {
     public class ApiVersionProvider : IApiVersionProvider
     {

@@ -4,7 +4,7 @@
 using System;
 using System.Diagnostics;
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.Analyzers.Linter.ApiVersions
 {
     public record struct ApiVersion
     {

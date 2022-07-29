@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 using Bicep.Core.Analyzers.Linter;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.Analyzers.Linter.ApiVersions;
 using Bicep.Core.Configuration;
 using Bicep.Core.Emit;
 using Bicep.Core.Features;

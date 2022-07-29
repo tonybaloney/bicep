@@ -10,7 +10,7 @@ using Bicep.Core.Features;
 using Bicep.Core.Extensions;
 using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.Workspaces;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.Analyzers.Linter.ApiVersions;
 
 namespace Bicep.Core.Semantics
 {

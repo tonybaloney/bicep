@@ -4,7 +4,7 @@
 using System.Collections.Generic;
 using Bicep.Core.TypeSystem;
 
-namespace Bicep.Core.ApiVersions
+namespace Bicep.Core.Analyzers.Linter.ApiVersions
 {
     public interface IApiVersionProvider
     {

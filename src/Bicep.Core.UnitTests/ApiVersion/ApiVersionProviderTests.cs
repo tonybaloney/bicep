@@ -3,7 +3,7 @@
 
 using System;
 using System.Linq;
-using Bicep.Core.ApiVersions;
+using Bicep.Core.Analyzers.Linter.ApiVersions;
 using Bicep.Core.TypeSystem;
 using Bicep.Core.UnitTests.Diagnostics.LinterRuleTests;
 using FluentAssertions;
