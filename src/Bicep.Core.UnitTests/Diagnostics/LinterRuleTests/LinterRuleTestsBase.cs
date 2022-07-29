@@ -45,29 +45,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
         }
 
-        static protected (string fileName, string fileContents) MainBicepFile(string bicepText)
-        {
-            return ("main.bicep", bicepText);
-        }
-
-        static protected (string fileName, string fileContents) ConfigFile(string configurationText)
-        {
-            return ("bicepconfig.json", configurationText);
-        }
-
-        static protected (string fileName, string fileContents)[] BicepFiles(string bicepText, string? configurationText)
-        {
-            List<(string fileName, string fileContents)> files = new List<(string fileName, string fileContents)>();
-            files.Add(MainBicepFile(bicepText));
-            if (configurationText is not null)
-            {
-                files.Add(ConfigFile(configurationText));
-            }
-
-            return files.ToArray();
-        }
-
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
+        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors, diags =>
             {
@@ -98,9 +76,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         {
             RunWithDiagnosticAnnotations(
                 bicepText,
-                diag => diag.Code == ruleCode
-                    || (onCompileErrors == OnCompileErrors.IncludeErrors && diag.Level == DiagnosticLevel.Error)
-                    || (onCompileErrors == OnCompileErrors.IncludeErrorsAndWarnings && (diag.Level == DiagnosticLevel.Error || diag.Level == DiagnosticLevel.Warning)),
+                diag =>
+                    diag.Code == ruleCode
+                    || (IsCompilerDiagnostic(diag) && onCompileErrors == OnCompileErrors.IncludeErrors && diag.Level == DiagnosticLevel.Error)
+                    || (IsCompilerDiagnostic(diag) && onCompileErrors == OnCompileErrors.IncludeErrorsAndWarnings && (diag.Level == DiagnosticLevel.Error || diag.Level == DiagnosticLevel.Warning)),
                 onCompileErrors,
                 assertAction,
                 configuration,
@@ -121,6 +100,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     result.Diagnostics.Where(filterFunc),
                     assertAction);
             }
+        }
+
+        private static bool IsCompilerDiagnostic(IDiagnostic diagnostic)
+        {
+            return diagnostic.Code.StartsWith("BCP");
         }
     }
 }
