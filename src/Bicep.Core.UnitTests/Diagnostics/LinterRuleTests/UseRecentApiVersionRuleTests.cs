@@ -32,10 +32,11 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             AssertLinterRuleDiagnostics(UseRecentApiVersionRule.Code,
                 bicep,
                 expectedMessagesForCode,
-                OnCompileErrors.IncludeErrors,
-                IncludePosition.LineNumber,
-                configuration: CreateConfigurationWithFakeToday(fakeToday),
-                apiVersionProvider: apiProvider);
+                new Options(
+                    OnCompileErrors.IncludeErrors,
+                    IncludePosition.LineNumber,
+                    Configuration: CreateConfigurationWithFakeToday(fakeToday),
+                    ApiVersionProvider: apiProvider));
         }
 
         public static SemanticModel SemanticModel(RootConfiguration configuration, ApiVersionProvider apiVersionProvider)

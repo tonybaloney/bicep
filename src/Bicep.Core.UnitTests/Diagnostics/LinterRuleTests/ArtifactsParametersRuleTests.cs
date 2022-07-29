@@ -14,7 +14,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     {
         private void CompileAndTest(string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors)
         {
-            AssertLinterRuleDiagnostics(ArtifactsParametersRule.Code, bicepText, expectedMessagesForCode, onCompileErrors);
+            var options = new Options(onCompileErrors, IncludePosition.None);
+            AssertLinterRuleDiagnostics(ArtifactsParametersRule.Code, bicepText, expectedMessagesForCode, options);
         }
 
         [TestMethod]
