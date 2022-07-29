@@ -80,7 +80,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
         {
             internal readonly List<(TextSpan span, string resourceType, string reason, ApiVersion[] acceptableVersions, CodeFix[] fixes)> Failures = new();
 
-            private readonly ApiVersionProvider apiVersionProvider;
+            private readonly IApiVersionProvider apiVersionProvider;
             private readonly SemanticModel model;
             private readonly DateTime today;
             private readonly int maxAllowedAgeInDays;
@@ -187,7 +187,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                     acceptableApiVersions);
             }
 
-            public static (ApiVersion[] allApiVersions, ApiVersion[] acceptableVersions) GetAcceptableApiVersions(ApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, ResourceScope scope, string fullyQualifiedResourceType)
+            public static (ApiVersion[] allApiVersions, ApiVersion[] acceptableVersions) GetAcceptableApiVersions(IApiVersionProvider apiVersionProvider, DateTime today, int maxAllowedAgeInDays, ResourceScope scope, string fullyQualifiedResourceType)
             {
                 var allVersions = apiVersionProvider.GetApiVersions(scope, fullyQualifiedResourceType).ToArray();
                 if (!allVersions.Any())

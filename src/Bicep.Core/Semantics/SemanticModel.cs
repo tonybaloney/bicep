@@ -32,7 +32,7 @@ namespace Bicep.Core.Semantics
         private readonly Lazy<ImmutableArray<DeclaredResourceMetadata>> declaredResourcesLazy;
         private readonly Lazy<ImmutableArray<IDiagnostic>> allDiagnostics;
 
-        public SemanticModel(Compilation compilation, BicepFile sourceFile, IFileResolver fileResolver, RootConfiguration configuration, ApiVersionProvider apiVersionProvider, IBicepAnalyzer linterAnalyzer)
+        public SemanticModel(Compilation compilation, BicepFile sourceFile, IFileResolver fileResolver, RootConfiguration configuration, IApiVersionProvider apiVersionProvider, IBicepAnalyzer linterAnalyzer)
         {
             Trace.WriteLine($"Building semantic model for {sourceFile.FileUri}");
 
@@ -122,7 +122,7 @@ namespace Bicep.Core.Semantics
             });
         }
 
-        public ApiVersionProvider ApiVersionProvider { get; }
+        public IApiVersionProvider ApiVersionProvider { get; }
 
         public BicepFile SourceFile { get; }
 

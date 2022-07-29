@@ -30,7 +30,7 @@ namespace Bicep.Cli.Services
         private readonly InvocationContext invocationContext;
         private readonly Workspace workspace;
         private readonly TemplateDecompiler decompiler;
-        private readonly ApiVersionProvider apiVersionProvider;
+        private readonly IApiVersionProvider apiVersionProvider;
 
         public CompilationService(
             IDiagnosticLogger diagnosticLogger,
@@ -39,7 +39,7 @@ namespace Bicep.Cli.Services
             IModuleDispatcher moduleDispatcher,
             IConfigurationManager configurationManager,
             TemplateDecompiler decompiler,
-            ApiVersionProvider apiVersionProvider)
+            IApiVersionProvider apiVersionProvider)
         {
             this.diagnosticLogger = diagnosticLogger;
             this.fileResolver = fileResolver;
