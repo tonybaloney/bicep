@@ -228,7 +228,7 @@ namespace Bicep.LangServer.IntegrationTests
         ""no-loc-expr-outside-params"": {
             ""level"": ""none""
         },
-        ""use-recent-api-version"": {
+        ""use-recent-api-versions"": {
             ""level"": ""off""
         }
       }

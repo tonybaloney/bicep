@@ -442,10 +442,10 @@
                     }
                   ]
                 },
-                "use-recent-api-version": {
+                "use-recent-api-versions": {
                   "allOf": [
                     {
-                      "description": "Use recent API versions. See https://aka.ms/bicep/linter/use-recent-api-version"
+                      "description": "Use recent API versions. See https://aka.ms/bicep/linter/use-recent-api-versions"
                     },
                     {
                       "$ref": "#/definitions/rule"

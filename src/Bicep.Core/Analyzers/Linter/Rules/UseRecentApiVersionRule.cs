@@ -19,7 +19,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 {
     public sealed class UseRecentApiVersionRule : LinterRuleBase
     {
-        public new const string Code = "use-recent-api-version";
+        public new const string Code = "use-recent-api-versions";
         public const int MaxAllowedAgeInDays = 365 * 2;
 
         // Debug/test switch: Pretend today is a different date

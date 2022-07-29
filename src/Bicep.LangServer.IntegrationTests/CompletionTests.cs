@@ -1063,7 +1063,7 @@ module mod2 './|' = {}
         [TestMethod]
         public async Task VerifyCompletionRequestWithinResourceDeclarationReturnsSnippets()
         {
-            string fileWithCursors = @"#disable-next-line use-recent-api-version
+            string fileWithCursors = @"#disable-next-line use-recent-api-versions
 resource automationAccount 'Microsoft.Automation/automationAccounts@2019-06-01' = {
   name: 'name'
   location: resourceGroup().location
