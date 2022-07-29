@@ -32,7 +32,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             LineNumber,
         }
 
-        private string FormatDiagnostic(IDiagnostic diagnostic, ImmutableArray<int> lineStarts, IncludePosition includePosition)
+        private static string FormatDiagnostic(IDiagnostic diagnostic, ImmutableArray<int> lineStarts, IncludePosition includePosition)
         {
             if (includePosition == IncludePosition.LineNumber)
             {
@@ -45,7 +45,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
+        protected static void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, IncludePosition includePosition = IncludePosition.None, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors, diags =>
             {
@@ -57,7 +57,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             apiVersionProvider);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
+        protected static void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, int expectedDiagnosticCountForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, onCompileErrors,  diags =>
             {
@@ -67,12 +67,12 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             apiVersionProvider);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
+        protected static void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             AssertLinterRuleDiagnostics(ruleCode, bicepText, OnCompileErrors.IncludeErrors, assertAction, configuration, apiVersionProvider);
         }
 
-        protected void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
+        protected static void AssertLinterRuleDiagnostics(string ruleCode, string bicepText, OnCompileErrors onCompileErrors, Action<IEnumerable<IDiagnostic>> assertAction, RootConfiguration? configuration = null, ApiVersionProvider? apiVersionProvider = null)
         {
             RunWithDiagnosticAnnotations(
                 bicepText,
