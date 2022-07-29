@@ -33,7 +33,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             code: Code,
             description: CoreResources.UseRecentApiVersionRule_Description,
             docUri: new Uri($"https://aka.ms/bicep/linter/{Code}"),
-            diagnosticStyling: DiagnosticStyling.Default)
+            diagnosticStyling: DiagnosticStyling.Default,
+            diagnosticLevel: DiagnosticLevel.Off // Default to "off"
+        )
         {
         }
 
