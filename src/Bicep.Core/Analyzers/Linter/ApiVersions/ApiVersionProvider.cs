@@ -21,11 +21,6 @@ namespace Bicep.Core.Analyzers.Linter.ApiVersions
         // One cache per target scope type
         private Dictionary<ResourceScope, ApiVersionCache> _caches = new();
 
-        public ApiVersionProvider()
-        {
-
-        }
-
         // for unit testing
         public void InjectTypeReferences(ResourceScope scope, IEnumerable<ResourceTypeReference> resourceTypeReferences)
         {

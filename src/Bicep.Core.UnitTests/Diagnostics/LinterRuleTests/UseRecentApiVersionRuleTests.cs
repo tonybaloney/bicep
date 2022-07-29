@@ -16,12 +16,20 @@ using Bicep.Core.TypeSystem;
 using Bicep.Core.UnitTests.Utils;
 using FluentAssertions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Bicep.Core.CodeAction;
 
 namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 {
     [TestClass]
     public class UseRecentApiVersionRuleTests : LinterRuleTestsBase
     {
+        public record DiagnosticAndFixes
+        (
+            string ExpectedDiagnosticMessage,
+            string ExpectedFixTitle,
+            string ExpectedSubstringInReplacedBicep
+        );
+
         private static void CompileAndTestWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, string[] expectedMessagesForCode)
         {
             // Test with the linter thinking today's date is fakeToday and also fake resource types from FakeResourceTypes
@@ -39,7 +47,50 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     ApiVersionProvider: apiProvider));
         }
 
-        public static SemanticModel SemanticModel(RootConfiguration configuration, ApiVersionProvider apiVersionProvider)
+        private static void CompileAndTestFixWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, DiagnosticAndFixes[] expectedDiagnostics)
+        {
+            // Test with the linter thinking today's date is fakeToday and also fake resource types from FakeResourceTypes
+            // Note: The compiler does not know about these fake types, only the linter.
+            var apiProvider = new ApiVersionProvider();
+            apiProvider.InjectTypeReferences(scope, FakeResourceTypes.GetFakeResourceTypeReferences(resourceTypes));
+
+            AssertLinterRuleDiagnostics(
+                UseRecentApiVersionRule.Code,
+                bicep,
+                (diags) =>
+                {
+                    // Diagnostic titles
+                    diags.Select(d => d.Message).Should().BeEquivalentTo(expectedDiagnostics.Select(d => d.ExpectedDiagnosticMessage));
+
+                    // Fixes
+                    for (int i = 0; i < diags.Count(); ++i)
+                    {
+                        var actual = diags.Skip(i).First();
+                        var expected = expectedDiagnostics[i];
+
+                        var fixable = actual.Should().BeAssignableTo<IFixable>().Which;
+                        fixable.Fixes.Should().HaveCount(1, "Expecting 1 fix");
+                        var fix = fixable.Fixes.First();
+
+                        fix.Kind.Should().Be(CodeFixKind.QuickFix);
+                        fix.Description.Should().Be(expected.ExpectedFixTitle);
+
+                        fix.Replacements.Should().HaveCount(1, "Expecting 1 replacement");
+                        var replacement = fix.Replacements.First();
+                        var replacementText = replacement.Text;
+                        var newBicep = bicep.Substring(0, replacement.Span.Position) + replacementText + bicep.Substring(replacement.Span.Position + replacement.Span.Length);
+
+                        newBicep.Should().Contain(expected.ExpectedSubstringInReplacedBicep, "the suggested API version should be replaced in the bicep file");
+                    }
+                },
+                new Options(
+                    OnCompileErrors.IncludeErrors,
+                    IncludePosition.LineNumber,
+                    Configuration: CreateConfigurationWithFakeToday(fakeToday),
+                    ApiVersionProvider: apiProvider));
+        }
+
+        private static SemanticModel SemanticModel(RootConfiguration configuration, ApiVersionProvider apiVersionProvider)
          => new Compilation(
                 BicepTestConstants.Features,
                 TestTypeHelper.CreateEmptyProvider(),
@@ -1688,6 +1739,31 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     "2422-07-04",
                     new string[] {
                         "[1] Use more recent API version for 'Fake.MachineLearningCompute/operationalizationClusters'. Could not find apiVersion 2417-06-01-beta for Fake.MachineLearningCompute/operationalizationClusters Acceptable versions: 2417-08-01-preview"
+                    });
+            }
+
+            [TestMethod]
+            public void ProvidesFixWithMostRecentVersion()
+            {
+                CompileAndTestFixWithFakeDateAndTypes(@"
+                        targetScope='subscription'
+
+                        param resourceGroupName string
+                        param resourceGroupLocation string
+
+                        resource newRG 'fake.Resources/resourceGroups@2419-05-10' = {
+                          name: resourceGroupName
+                          location: resourceGroupLocation
+                        }",
+                    ResourceScope.Subscription,
+                    FakeResourceTypes.SubscriptionScopeTypes,
+                    "2422-07-04",
+                    new[] {
+                        new DiagnosticAndFixes(
+                            "Use more recent API version for 'fake.Resources/resourceGroups'. '2419-05-10' is 1151 days old, should be no more than 730 days old. Acceptable versions: 2421-05-01, 2421-04-01, 2421-01-01, 2420-10-01, 2420-08-01",
+                            "Replace with 2421-05-01",
+                            "resource newRG 'fake.Resources/resourceGroups@2421-05-01'"
+                            )
                     });
             }
         }

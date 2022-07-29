@@ -244,7 +244,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             }
 
             // Find the portion of the resource.type@api-version string that corresponds to the api version
-            private TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
+            private static TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
             {
                 if (resourceSymbol.DeclaringResource.TypeString is StringSyntax typeString &&
                     typeString.StringTokens.First() is Token token)
@@ -257,7 +257,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return null;
             }
 
-            private (TextSpan span, string resourceType, string reason, ApiVersion[] acceptableVersionsSorted, CodeFix[] fixes)
+            private static (TextSpan span, string resourceType, string reason, ApiVersion[] acceptableVersionsSorted, CodeFix[] fixes)
             CreateFailure(TextSpan span, string fullyQualifiedResourceType, ApiVersion actualApiVersion, string reason, ApiVersion[] acceptableVersionsSorted)
             {
                 // For now, always choose the most recent for the suggested auto-fix
@@ -265,7 +265,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 var codeReplacement = new CodeReplacement(span, preferredVersion.Formatted);
 
                 var fix = new CodeFix(
-                    string.Format(CoreResources.UseRecentApiVersionRule_Fix_ReplaceApiVersion, preferredVersion),
+                    string.Format(CoreResources.UseRecentApiVersionRule_Fix_ReplaceApiVersion, preferredVersion.Formatted),
                     isPreferred: true,
                     CodeFixKind.QuickFix,
                     codeReplacement);
