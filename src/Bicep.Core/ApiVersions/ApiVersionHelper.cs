@@ -36,7 +36,7 @@ namespace Bicep.Core.ApiVersions
         {
             var (date, suffix) = TryParse(apiVersion);
 
-            if (date == null)
+            if (date is null)
             {
                 throw new ArgumentException($"Unexpected API version {apiVersion}");
             }

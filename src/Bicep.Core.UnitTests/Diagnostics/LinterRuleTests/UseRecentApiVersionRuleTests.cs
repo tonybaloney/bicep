@@ -22,11 +22,6 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
     [TestClass]
     public class UseRecentApiVersionRuleTests : LinterRuleTestsBase
     {
-        public UseRecentApiVersionRuleTests()
-        {
-
-        }
-
         private void CompileAndTestWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, string[] expectedMessagesForCode)
         {
             // Test with the linter thinking today's date is fakeToday and also fake resource types from FakeResourceTypes
@@ -193,7 +188,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void GNoStable_NewPreview_PickNewPreview_MultiplePreviewHaveSameDate()
+            public void NoStable_NewPreview_PickNewPreview_MultiplePreviewHaveSameDate()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -220,9 +215,8 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     });
             }
 
-
             [TestMethod]
-            public void GNoStable_OldAndNewPreview_PickNewPreview()
+            public void NoStable_OldAndNewPreview_PickNewPreview()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -651,7 +645,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void LostOfPreviewVersions_AndOneRecentGA_Available_AllowOnlyPreviewsMoreRecentThanGA()
+            public void LotsOfPreviewVersions_AndOneRecentGA_Available_AllowOnlyPreviewsMoreRecentThanGA()
             {
                 TestGetAcceptableApiVersions(
                     "Fake.Kusto/clusters",
@@ -1036,7 +1030,6 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                      replacement: recentGAVersion
                   ));
             }
-
 
             [TestMethod]
             public void WithRecentPreviewVersion_WhenRecentGAVersionIsAvailable_ShouldAddDiagnostics()

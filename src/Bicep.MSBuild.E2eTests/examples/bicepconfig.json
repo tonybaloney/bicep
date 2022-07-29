@@ -4,7 +4,7 @@
     "analyzers": {
         "core": {
             "rules": {
-                "use-recent-api-version": {
+                "use-recent-api-versions": {
                     "level": "off"
                 }
             }
