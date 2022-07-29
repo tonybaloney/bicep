@@ -127,7 +127,7 @@ namespace Bicep.Cli
                 .AddSingleton<IFileSystem, FileSystem>()
                 .AddSingleton<IConfigurationManager, ConfigurationManager>()
                 .AddSingleton<ITokenCredentialFactory, TokenCredentialFactory>()
-                .AddSingleton<ApiVersionProvider, ApiVersionProvider>()
+                .AddSingleton<IApiVersionProvider, ApiVersionProvider>()
                 .AddSingleton<TemplateDecompiler>()
                 .AddSingleton<DecompilationWriter>()
                 .AddSingleton<CompilationWriter>()
