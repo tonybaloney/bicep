@@ -350,6 +350,6 @@
   </data>
   <data name="UseRecentApiVersionRule_Fix_ReplaceApiVersion" xml:space="preserve">
     <value>Replace with {0}</value>
-	<comment>{0} a programmatic apiVersion, format=yyyy-mm-dd-suffix</comment>
+    <comment>{0} a programmatic apiVersion, format=yyyy-mm-dd-suffix</comment>
   </data>
 </root>
