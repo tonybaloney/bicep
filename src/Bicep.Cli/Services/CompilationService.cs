@@ -74,7 +74,7 @@ namespace Bicep.Cli.Services
             return await CompileAsync(inputUri, skipRestore);
         }
         public async Task<Compilation> CompileAsync(Uri inputUri, bool skipRestore)
-        {   
+        {
             var configuration = this.configurationManager.GetConfiguration(inputUri);
 
             var sourceFileGrouping = SourceFileGroupingBuilder.Build(this.fileResolver, this.moduleDispatcher, this.workspace, inputUri, configuration);
@@ -98,28 +98,33 @@ namespace Bicep.Cli.Services
         }
 
 
-        public ParamsSemanticModel CompileParams(string inputPath, bool skipRestore)
+        public async Task<ParamsSemanticModel> CompileParams(string inputPath, bool skipRestore)
         {
             var inputUri = PathHelper.FilePathToFileUrl(inputPath);
-            
+
             if(!fileResolver.TryRead(inputUri, out var fileText, out var failureMessage))
             {
                 throw new Exception($"Unable to read file {inputPath}");
             }
-            var paramsFile = SourceFileFactory.CreateBicepParamFile(inputUri, fileText);
 
-            //TODO: Create paramsSemanticModel through Build method
-            var getCompilation = (Uri uri) => {
-                Task<Compilation> task = Task.Run<Compilation>(async () => await CompileAsync(uri, skipRestore));
-                return task.Result;
-            };
-            
-            var model = new ParamsSemanticModel(paramsFile, fileResolver, getCompilation);
-            
+            var paramsFile = SourceFileFactory.CreateBicepParamFile(inputUri, fileText);
+            var model = await ParamsSemanticModel.Build(paramsFile, async bicepUri => {
+                try {
+                    var compilation = await CompileAsync(bicepUri, skipRestore);
+
+                    return (compilation, null);
+                }
+                catch (Exception exception)
+                {
+                    // TODO relevant failure message here like "failed to load bicep file"
+                    return (null, x => x.ParameterMultipleAssignments(exception.Message));
+                }
+            });
+
             LogParamDiagnostics(model);
-          
+
             return model;
-        } 
+        }
 
         public async Task<(Uri, ImmutableDictionary<Uri, string>)> DecompileAsync(string inputPath, string outputPath)
         {

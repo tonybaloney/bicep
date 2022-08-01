@@ -70,12 +70,12 @@ namespace Bicep.Cli.Commands
                 }
 
                 // return non-zero exit code on errors
-                return diagnosticLogger.ErrorCount > 0 ? 1 : 0;       
+                return diagnosticLogger.ErrorCount > 0 ? 1 : 0;
             }
             else if(IsBicepparamsFile(inputPath))
             {
-              
-                var model = compilationService.CompileParams(inputPath, args.NoRestore);
+
+                var model = await compilationService.CompileParams(inputPath, args.NoRestore);
 
                 static string DefaultOutputPath(string path) => PathHelper.GetDefaultBuildOutputPath(path);
                 var outputPath = PathHelper.ResolveDefaultOutputPath(inputPath, args.OutputDir, args.OutputFile, DefaultOutputPath);
@@ -84,7 +84,7 @@ namespace Bicep.Cli.Commands
 
                 return diagnosticLogger.ErrorCount > 0 ? 1 : 0;
             }
-            
+
             logger.LogError(CliResources.UnrecognizedFileExtensionMessage, inputPath);
             return 1;
         }

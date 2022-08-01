@@ -4,12 +4,14 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Threading.Tasks;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.FileSystem;
 using Bicep.Core.Parsing;
 using Bicep.Core.Syntax;
 using Bicep.Core.TypeSystem;
 using Bicep.Core.Workspaces;
+using static Bicep.Core.Diagnostics.DiagnosticBuilder;
 
 namespace Bicep.Core.Semantics
 {
@@ -21,28 +23,43 @@ namespace Bicep.Core.Semantics
         public ParamsTypeManager ParamsTypeManager { get; }
         public ParamsSymbolContext ParamsSymbolContext { get; }
         public Lazy<ImmutableArray<IDiagnostic>> AllDiagnostics { get; }
-        public IFileResolver fileResolver { get; }
         private readonly ImmutableArray<IDiagnostic> compilationLoadDiagnostics;
-        
-        public ParamsSemanticModel(BicepParamFile bicepParamFile, IFileResolver fileResolver, Func<Uri, Compilation>? getCompilation = null)
+
+        public static async Task<ParamsSemanticModel> Build(
+            BicepParamFile bicepParamFile,
+            Func<Uri, Task<(Compilation? compilation, ErrorBuilderDelegate? compilationLoadBuilder)>> buildBicepCompilation)
         {
-            this.fileResolver = fileResolver;
+            var diagnostics = ToListDiagnosticWriter.Create();
 
-            //parse using statement and link bicep template 
-            this.BicepParamFile = bicepParamFile;
+            Compilation? bicepCompilation = null;
+            var fileUri = TryGetBicepFileUri(bicepParamFile, diagnostics);
+            if (fileUri is not null)
+            {
+                (bicepCompilation, var compilationLoadBuilder) = await buildBicepCompilation(fileUri);
+                // TODO maybe just output this from TryGetBicepFileUri
+                var usingSyntax = bicepParamFile.ProgramSyntax.Children.OfType<UsingDeclarationSyntax>().First();
 
-            Uri? bicepFileUri = TryGetBicepFileUri(out var diagnosticWriter);
-            compilationLoadDiagnostics = diagnosticWriter.GetDiagnostics().ToImmutableArray();
-            if(bicepFileUri is {} && getCompilation is {})
-            {   
-                this.BicepCompilation = getCompilation(bicepFileUri);
+                if (compilationLoadBuilder is not null)
+                {
+                    diagnostics.Write(compilationLoadBuilder(DiagnosticBuilder.ForPosition(usingSyntax.Path)));
+                }
             }
+
+            return new(bicepParamFile, bicepCompilation, diagnostics.GetDiagnostics().ToImmutableArray());
+        }
+
+        public ParamsSemanticModel(BicepParamFile bicepParamFile, Compilation? bicepCompilation, ImmutableArray<IDiagnostic> compilationLoadDiagnostics)
+        {
+            //parse using statement and link bicep template
+            this.BicepParamFile = bicepParamFile;
+            this.BicepCompilation = bicepCompilation;
+            this.compilationLoadDiagnostics = compilationLoadDiagnostics;
 
             //binder logic
             var paramsSymbolContext = new ParamsSymbolContext(this);
             ParamsSymbolContext = paramsSymbolContext;
             this.BicepParamFile = bicepParamFile;
-            this.ParamBinder = new(bicepParamFile, paramsSymbolContext); 
+            this.ParamBinder = new(bicepParamFile, paramsSymbolContext);
             this.ParamsTypeManager = new(this, ParamBinder);
             // name binding is done
             // allow type queries now
@@ -74,12 +91,12 @@ namespace Bicep.Core.Semantics
 
             return diagnosticWriter.GetDiagnostics();
         }
-        
+
         private void GetParameterMismatchDiagnostics(IDiagnosticWriter diagnosticWriter, ImmutableArray<Metadata.ParameterMetadata> parameters, IEnumerable<ParameterAssignmentSyntax> parameterAssignments)
         {
             var parametersDict = parameters.ToDictionary(x => x.Name, LanguageConstants.IdentifierComparer);
             var parametersAssignmentsDict = parameterAssignments.ToDictionary(x => x.Name.IdentifierName, LanguageConstants.IdentifierComparer);
-            
+
             // parameters that are declared but not assigned
             var missingRequiredParams = parametersDict.Values
                 .Where(x => x.IsRequired)
@@ -90,7 +107,7 @@ namespace Bicep.Core.Semantics
                 .Where(x => !parametersDict.ContainsKey(x.Key))
                 .Select(x => x.Value)
                 .OrderBy(x => x.Name.IdentifierName);
-            
+
             foreach (var requiredParam in missingRequiredParams)
             {
                 diagnosticWriter.Write(new TextSpan(0, 0), x => x.MissingParameterAssignment(requiredParam.Name));
@@ -101,7 +118,7 @@ namespace Bicep.Core.Semantics
                 diagnosticWriter.Write(assignedParam.Span, x => x.MissingParameterDeclaration(this.ParamBinder.GetSymbolInfo(assignedParam)?.Name));
             }
         }
-        
+
         private void GetTypeMismatchDiagnostics(IDiagnosticWriter diagnosticWriter, IEnumerable<ParameterAssignmentSyntax> parameterAssignments)
         {
             foreach (var syntax in parameterAssignments)
@@ -114,50 +131,49 @@ namespace Bicep.Core.Semantics
                 }
             }
         }
-        
+
         public ImmutableArray<IDiagnostic> GetAllDiagnostics()
             => BicepParamFile.ProgramSyntax.GetParseDiagnostics()
                 .Concat(ParamsTypeManager.GetAllDiagnostics())
                 .Concat(this.compilationLoadDiagnostics)
                 .Concat(GetAdditionalSemanticDiagnostics()).ToImmutableArray();
-            
+
         /// <summary>
         /// Gets the file that was compiled.
         /// </summary>
         public ParamFileSymbol Root => this.ParamBinder.ParamFileSymbol;
 
-        private Uri? TryGetBicepFileUri(out ToListDiagnosticWriter allDiagnostics)
+        private static Uri? TryGetBicepFileUri(BicepParamFile bicepParamFile, IDiagnosticWriter diagnostics)
         {
-            allDiagnostics = ToListDiagnosticWriter.Create();
-            var usingDeclarations = BicepParamFile.ProgramSyntax.Children.OfType<UsingDeclarationSyntax>();
+            var usingDeclarations = bicepParamFile.ProgramSyntax.Children.OfType<UsingDeclarationSyntax>();
 
             if(usingDeclarations.FirstOrDefault() is not {} usingDeclaration)
             {
-                allDiagnostics.Write(new TextSpan(0, 0), x => x.UsingDeclarationNotSpecified());
+                diagnostics.Write(new TextSpan(0, 0), x => x.UsingDeclarationNotSpecified());
                 return null;
             }
-            
+
             if(usingDeclarations.Count() > 1)
             {
                 foreach(var declaration in usingDeclarations)
                 {
-                    allDiagnostics.Write(declaration.Keyword, x => x.MoreThanOneUsingDeclarationSpecified());
+                    diagnostics.Write(declaration.Keyword, x => x.MoreThanOneUsingDeclarationSpecified());
                 }
                 return null;
             }
 
             if(!PathHelper.TryGetUsingPath(usingDeclaration, out var bicepFilePath, out var failureBuilder))
-            {       
+            {
                 var diagnostic = failureBuilder(new DiagnosticBuilder.DiagnosticBuilderInternal(usingDeclaration.Path.Span));
-                allDiagnostics.Write(diagnostic);
+                diagnostics.Write(diagnostic);
                 return null;
             }
 
-            if (!Uri.TryCreate(BicepParamFile.FileUri, bicepFilePath, out var bicepFileUri) || !fileResolver.FileExists(bicepFileUri))
+            if (!Uri.TryCreate(bicepParamFile.FileUri, bicepFilePath, out var bicepFileUri))
             {
-                allDiagnostics.Write(usingDeclaration.Path.Span, x => x.UsingDeclarationReferencesInvalidFile());
-                return null; 
-            }            
+                diagnostics.Write(usingDeclaration.Path.Span, x => x.UsingDeclarationReferencesInvalidFile());
+                return null;
+            }
 
             return bicepFileUri;
         }
