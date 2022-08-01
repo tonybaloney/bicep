@@ -88,7 +88,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
             public Visitor(SemanticModel model, DateTime today, int maxAllowedAgeInDays, bool warnNotFound)
             {
-                this.apiVersionProvider = model.ApiVersionProvider ?? new ApiVersionProvider();
+                this.apiVersionProvider = model.Compilation.ApiVersionProvider ?? new ApiVersionProvider();
                 this.model = model;
                 this.today = today;
                 this.maxAllowedAgeInDays = maxAllowedAgeInDays;
@@ -303,7 +303,7 @@ namespace Bicep.Core.Analyzers.Linter.Rules
                 return apiVersion.Date >= today.AddDays(-maxAllowedAgeInDays);
             }
 
-             // Recent meaning < maxAllowedAgeInDays old
+            // Recent meaning < maxAllowedAgeInDays old
             private static IEnumerable<ApiVersion> FilterRecent(IEnumerable<ApiVersion> apiVersions, DateTime today, int maxAllowedAgeInDays)
             {
                 return apiVersions.Where(v => IsRecent(v, today, maxAllowedAgeInDays));

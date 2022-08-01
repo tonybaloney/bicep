@@ -6,7 +6,6 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using Bicep.Core.Analyzers.Interfaces;
-using Bicep.Core.Analyzers.Linter.ApiVersions;
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Emit;
 using Bicep.Core.FileSystem;
@@ -31,14 +30,13 @@ namespace Bicep.Core.Semantics
         private readonly Lazy<ImmutableArray<DeclaredResourceMetadata>> declaredResourcesLazy;
         private readonly Lazy<ImmutableArray<IDiagnostic>> allDiagnostics;
 
-        public SemanticModel(Compilation compilation, BicepFile sourceFile, IFileResolver fileResolver, IApiVersionProvider apiVersionProvider, IBicepAnalyzer linterAnalyzer)
+        public SemanticModel(Compilation compilation, BicepFile sourceFile, IFileResolver fileResolver, IBicepAnalyzer linterAnalyzer)
         {
             Trace.WriteLine($"Building semantic model for {sourceFile.FileUri}");
 
             Compilation = compilation;
             SourceFile = sourceFile;
             FileResolver = fileResolver;
-            ApiVersionProvider = apiVersionProvider;
 
             // create this in locked mode by default
             // this blocks accidental type or binding queries until binding is done
@@ -119,8 +117,6 @@ namespace Bicep.Core.Semantics
                 return outputs.ToImmutableArray();
             });
         }
-
-        public IApiVersionProvider ApiVersionProvider { get; }
 
         public BicepFile SourceFile { get; }
 
