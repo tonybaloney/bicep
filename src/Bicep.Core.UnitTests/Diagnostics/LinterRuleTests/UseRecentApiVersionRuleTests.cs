@@ -1766,6 +1766,35 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                             )
                     });
             }
+
+            [TestMethod]
+            public void LinterIgnoresNotAzureResources()
+            {
+                CompileAndTestWithFakeDateAndTypes(@"
+                        import kubernetes as kubernetes {
+                          namespace: 'default'
+                          kubeConfig: ''
+                        }
+                        resource service 'core/Service@v1' existing = {
+                          metadata: {
+                            name: 'existing-service'
+                            namespace: 'default'
+                            labels: {
+                              format: 'k8s-extension'
+                            }
+                            annotations: {
+                              foo: 'bar'
+                            }
+                          }
+                        }
+                    ",
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                        // pass
+                    });
+            }
         }
     }
 }
