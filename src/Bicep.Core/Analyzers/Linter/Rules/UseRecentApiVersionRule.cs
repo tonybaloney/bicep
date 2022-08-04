@@ -12,6 +12,7 @@ using Bicep.Core.Diagnostics;
 using Bicep.Core.Parsing;
 using Bicep.Core.Resources;
 using Bicep.Core.Semantics;
+using Bicep.Core.Semantics.Metadata;
 using Bicep.Core.Syntax;
 using Bicep.Core.TypeSystem;
 
@@ -34,10 +35,9 @@ namespace Bicep.Core.Analyzers.Linter.Rules
             description: CoreResources.UseRecentApiVersionRule_Description,
             docUri: new Uri($"https://aka.ms/bicep/linter/{Code}"),
             diagnosticStyling: DiagnosticStyling.Default,
-            diagnosticLevel: DiagnosticLevel.Off // Default to "off"
+            diagnosticLevel: DiagnosticLevel.Off
         )
-        {
-        }
+        {}
 
         public override void Configure(AnalyzersConfiguration config)
         {
@@ -97,7 +97,17 @@ namespace Bicep.Core.Analyzers.Linter.Rules
 
             public override void VisitResourceDeclarationSyntax(ResourceDeclarationSyntax resourceDeclarationSyntax)
             {
-                ResourceSymbol resourceSymbol = new ResourceSymbol(model.SymbolContext, resourceDeclarationSyntax.Name.IdentifierName, resourceDeclarationSyntax);
+                if ( model.GetSymbolInfo(resourceDeclarationSyntax) is not ResourceSymbol resourceSymbol)
+                {
+                    return;
+                }
+
+                if (model.DeclaredResources.FirstOrDefault(r => r.Symbol == resourceSymbol) is not DeclaredResourceMetadata declaredResourceMetadata
+                    || !declaredResourceMetadata.IsAzResource)
+                {
+                    // Skip if it's not an Az resource or is invalid
+                    return;
+                }
 
                 if (resourceSymbol.TryGetResourceTypeReference() is ResourceTypeReference resourceTypeReference &&
                     resourceTypeReference.ApiVersion is string apiVersionString &&

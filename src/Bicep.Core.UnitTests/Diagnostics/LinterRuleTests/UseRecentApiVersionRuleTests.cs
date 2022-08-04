@@ -30,7 +30,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             string ExpectedSubstringInReplacedBicep
         );
 
-        private static void CompileAndTestWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, string[] expectedMessagesForCode)
+        private static void CompileAndTestWithFakeDateAndTypes(string bicep, ResourceScope scope, string[] resourceTypes, string fakeToday, string[] expectedMessagesForCode, OnCompileErrors onCompileErrors = OnCompileErrors.IncludeErrors)
         {
             // Test with the linter thinking today's date is fakeToday and also fake resource types from FakeResourceTypes
             // Note: The compiler does not know about these fake types, only the linter.
@@ -41,7 +41,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                 bicep,
                 expectedMessagesForCode,
                 new Options(
-                    OnCompileErrors.IncludeErrors,
+                    OnCompileErrors: onCompileErrors,
                     IncludePosition.LineNumber,
                     Configuration: CreateConfigurationWithFakeToday(fakeToday),
                     ApiVersionProvider: apiProvider));
@@ -1792,8 +1792,9 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     FakeResourceTypes.ResourceScopeTypes,
                     "2422-07-04",
                     new string[] {
-                        // pass
-                    });
+                       // pass
+                    },
+                    OnCompileErrors.Ignore);
             }
         }
     }
