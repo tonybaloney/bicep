@@ -49,7 +49,7 @@
     "rule-def-level-off": {
       "type": "object",
       "default": {
-        "level": "error"
+        "level": "off"
       },
       "properties": {
         "level": {
