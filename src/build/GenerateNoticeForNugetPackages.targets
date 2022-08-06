@@ -15,7 +15,7 @@
     <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
     
     <Exec 
-      Command="C:\GitHub\Azure\bicep\src\OSS.NoticeGenerator\bin\Debug\net6.0\NoticeGenerator.exe --asset-files $(ProjectAssetsFile) --output-file $(NoticeFilePath)"
+      Command="$(NOTICE_GENERATOR_PATH) --asset-files $(ProjectAssetsFile) --output-file $(NoticeFilePath)"
       WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 </Project>
