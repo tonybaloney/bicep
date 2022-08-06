@@ -51,7 +51,10 @@ namespace OSS.NoticeGenerator
             {
                 rootCommand.SetHandler<List<string>, List<string>, string>(async (assetFiles, npmListJsonFiles, outputFile) =>
                 {
-                    await MainInternal(assetFiles.ToImmutableArray(), npmListJsonFiles.ToImmutableArray(), outputFile);
+                    await MainInternal(
+                        assetFiles.Select(ResolvePath).ToImmutableArray(),
+                        npmListJsonFiles.Select(ResolvePath).ToImmutableArray(),
+                        ResolvePath(outputFile));
                 }, assetFilesOption, npmListJsonFilesOption, outputOption);
 
                 return await rootCommand.InvokeAsync(args);
@@ -100,6 +103,16 @@ namespace OSS.NoticeGenerator
             File.WriteAllText(outputFile, responseBody.Content);
 
             Console.WriteLine($"NOTICE file saved to '{outputFile}'.");
+        }
+
+        private static string ResolvePath(string path)
+        {
+            if (Path.IsPathFullyQualified(path))
+            {
+                return path;
+            }
+
+            return Path.Combine(Environment.CurrentDirectory, path);
         }
 
         private static T DeserializeFile<T>(string assetFile)
