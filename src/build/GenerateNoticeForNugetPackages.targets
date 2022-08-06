@@ -3,7 +3,7 @@
     <NoticeFilePath>$(IntermediateOutputPath)NOTICE.txt</NoticeFilePath>
   </PropertyGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(NOTICE_GENERATOR_PATH)' != ''">
     <!-- 
       Ensure the notice file is included in the package at the root.
       This must be outside the generate notice target because the target can be skipped if notice file is up to date
@@ -11,7 +11,9 @@
     <Content Include="$(NoticeFilePath)" PackagePath="" />
   </ItemGroup>
 
-  <Target Name="GenerateNotice" BeforeTargets="GenerateNuspec" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
+  <Target Name="GenerateNotice" Condition="'$(NOTICE_GENERATOR_PATH)' != ''" BeforeTargets="GenerateNuspec" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
+    <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
+    
     <Exec 
       Command="C:\GitHub\Azure\bicep\src\OSS.NoticeGenerator\bin\Debug\net6.0\NoticeGenerator.exe --asset-files $(ProjectAssetsFile) --output-file $(NoticeFilePath)"
       WorkingDirectory="$(MSBuildProjectDirectory)" />
