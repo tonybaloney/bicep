@@ -8,9 +8,12 @@
 -->
 <Project Sdk="Microsoft.Build.NoTargets">
   <PropertyGroup>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <!-- NoTargets SDK no longer sets Language, which is required by NerdBank.GitVersioning -->
     <Language>C#</Language>
+
+    <BicepCliAssetsFile>$(MSBuildProjectDirectory)\..\Bicep.Cli\obj\project.assets.json</BicepCliAssetsFile>
+    <NoticeFileName>NOTICE.txt</NoticeFileName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,7 +24,16 @@
     <IssFile Include="bicep.iss" />
   </ItemGroup>
 
+  <Target Name="GenerateNotice" BeforeTargets="RunTool" Inputs="$(BicepCliAssetsFile)" Outputs="$(IntermediateOutputPath)$(NoticeFileName)">
+    <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
+    <Error Condition="!Exists('$(BicepCliAssetsFile)')" Text="Could not find the Bicep CLI project assets file at '$(BicepCliAssetsFile)'." />
+
+    <Exec 
+      Command="$(NOTICE_GENERATOR_PATH) --asset-files $(BicepCliAssetsFile) --output-file $(IntermediateOutputPath)$(NoticeFileName)"
+      WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
   <Target Name="RunTool" AfterTargets="Build" DependsOnTargets="GetBuildVersion">
-    <Exec Command="$(InnoSetupCompiler) %(IssFile.FullPath) /O$(OutDir) /DMyAppVersion=$(BuildVersion)" />
+    <Exec Command="$(InnoSetupCompiler) %(IssFile.FullPath) /O$(OutDir) /DMyAppVersion=$(BuildVersion) /DConfiguration=$(Configuration) /DTargetFramework=$(TargetFramework) /DNoticeFileName=$(NoticeFileName)" />
   </Target>
 </Project>
