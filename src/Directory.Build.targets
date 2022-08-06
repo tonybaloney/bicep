@@ -50,5 +50,5 @@
     <None Include="$(MSBuildThisFileDirectory)\icons\bicep-logo-256.png" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
-  <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForNugetPackages.targets" Condition="'$(EnableNuget)' == 'true'" />
+  <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForCSharpNugetPackages.targets" Condition="'$(EnableNuget)' == 'true'" />
 </Project>
