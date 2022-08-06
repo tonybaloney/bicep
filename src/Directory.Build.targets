@@ -51,4 +51,6 @@
   </ItemGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForCSharpNugetPackages.targets" Condition="'$(EnableNuget)' == 'true'" />
+
+  <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForCSharpProjects.targets" Condition="'$(EnableNoticeInPublishOutput)' == 'true'" />
 </Project>

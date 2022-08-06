@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <NoticeFileName>NOTICE.txt</NoticeFileName>
+  </PropertyGroup>
+
+  <Target Name="GenerateNotice" AfterTargets="Publish" Inputs="$(ProjectAssetsFile)" Outputs="$(PublishDir)\$(NoticeFileName)">
+    <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
+    
+    <Exec 
+      Command="$(NOTICE_GENERATOR_PATH) --asset-files $(ProjectAssetsFile) --output-file $(PublishDir)\$(NoticeFileName)"
+      WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+</Project>
