@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <NoticeFilePath>$(IntermediateOutputPath)NOTICE.txt</NoticeFilePath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 
+      Ensure the notice file is included in the package at the root.
+      This must be outside the generate notice target because the target can be skipped if notice file is up to date 
+      CopyToOutputDirectory="PreserveNewest"
+    -->
+    <Content Include="$(NoticeFilePath)" PackagePath="" />
+  </ItemGroup>
+
+  <Target Name="GenerateNotice" BeforeTargets="GenerateNuspec" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
+    <Exec 
+      Command="C:\GitHub\Azure\bicep\src\OSS.NoticeGenerator\bin\Debug\net6.0\NoticeGenerator.exe --asset-files $(ProjectAssetsFile) --output-file $(NoticeFilePath)"
+      WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+</Project>

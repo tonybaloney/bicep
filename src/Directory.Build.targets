@@ -46,7 +46,9 @@
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(EnableNuget)' == 'true'" >
+  <ItemGroup Condition="'$(EnableNuget)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)\icons\bicep-logo-256.png" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForNugetPackages.targets" Condition="'$(EnableNuget)' == 'true'" />
 </Project>
