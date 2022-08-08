@@ -39,6 +39,7 @@ namespace Bicep.Core.Syntax
         protected virtual SyntaxBase RewriteInternal(SyntaxBase syntax)
         {
             currentSyntax = null;
+            BicepEventSource.SyntaxVisited();
             syntax.Accept(this);
 
             if (currentSyntax is null)

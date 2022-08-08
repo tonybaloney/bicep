@@ -11,6 +11,11 @@ namespace Bicep.Core.Syntax
 {
     public abstract class SyntaxBase : IPositionable
     {
+        public SyntaxBase()
+        {
+            BicepEventSource.SyntaxCreated();
+        }
+
         public abstract void Accept(ISyntaxVisitor visitor);
 
         public abstract TextSpan Span { get; }

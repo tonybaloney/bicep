@@ -13,6 +13,7 @@ namespace Bicep.Core.Semantics
         protected Symbol(string name)
         {
             this.Name = name;
+            BicepEventSource.SymbolCreated();
         }
 
         public abstract void Accept(SymbolVisitor visitor);

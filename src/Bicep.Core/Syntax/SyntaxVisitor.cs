@@ -23,6 +23,7 @@ namespace Bicep.Core.Syntax
 
         protected virtual void VisitInternal(SyntaxBase node)
         {
+            BicepEventSource.SyntaxVisited();
             node.Accept(this);
         }
 
