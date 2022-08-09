@@ -99,9 +99,7 @@ namespace OSS.NoticeGenerator
             var requestBody = CreateNoticeRequest(nugetDependencies, npmDependencies);
             var responseBody = await GenerateNotice(client, requestBody);
 
-            Console.WriteLine($"Generated {responseBody.Content.Length} characters of NOTICE file.");
-            File.WriteAllText(outputFile, responseBody.Content);
-
+            await WriteNoticeFile(responseBody.Content, outputFile);
             Console.WriteLine($"NOTICE file saved to '{outputFile}'.");
         }
 
@@ -152,10 +150,10 @@ namespace OSS.NoticeGenerator
                 .Concat(npmDependencies.Select(npmDependency => $"npm/npmjs/-/{npmDependency}"))
                 .ToImmutableArray();
 
-            return new NoticeRequest(coordinates, new NoticeRequestOptions());
+            return new NoticeRequest(coordinates, new NoticeRequestOptions(), "json");
         }
 
-        private static async Task<NoticeResponse> GenerateNotice(HttpClient client, NoticeRequest requestBody)
+        private static async Task<NoticeResponse<NoticeResponseJsonContent>> GenerateNotice(HttpClient client, NoticeRequest requestBody)
         {
             var request = new HttpRequestMessage(HttpMethod.Post, "https://api.clearlydefined.io/notices")
             {
@@ -176,13 +174,50 @@ namespace OSS.NoticeGenerator
                 throw new ApplicationException(error);
             }
 
-            var responseBody = await response.Content.ReadFromJsonAsync<NoticeResponse>(SerializerOptions) ?? throw new Exception("Unable to deserialize response.");
+            var responseBody = await response.Content.ReadFromJsonAsync<NoticeResponse<NoticeResponseJsonContent>>(SerializerOptions) ?? throw new Exception("Unable to deserialize response.");
 
-            // strip out large content before logging out the response
-            var responseForLogging = JsonSerializer.Serialize(responseBody with { Content = "..." }, SerializerOptions);
-            Console.WriteLine(responseForLogging);
+            // log just the summary
+            var summaryForLogging = JsonSerializer.Serialize(responseBody.Summary, SerializerOptions);
+            Console.WriteLine(summaryForLogging);
 
             return responseBody;
+        }
+
+        private static async Task WriteNoticeFile(NoticeResponseJsonContent content, string fileName)
+        {
+            using var stream = File.OpenWrite(fileName);
+            using var writer = new StreamWriter(stream);
+
+            // TODO: Add notice prefix content
+
+            const string Separator = $"---------------------------------------------------------";
+
+            foreach (var package in content.Packages)
+            {
+                await writer.WriteLineAsync(Separator);
+                await writer.WriteLineAsync();
+
+                await writer.WriteLineAsync($"{package.Name} {package.Version} - {package.License}");
+                await writer.WriteLineAsync(package.Website);
+
+                await writer.WriteLineAsync();
+
+                foreach (var copyright in package.Copyrights ?? ImmutableArray<string>.Empty)
+                {
+                    await writer.WriteLineAsync(copyright);
+                }
+
+                await writer.WriteLineAsync();
+
+                await writer.WriteLineAsync(package.Text);
+
+                await writer.WriteLineAsync();
+
+                await writer.WriteLineAsync(Separator);
+                await writer.WriteLineAsync();
+            }
+
+            await writer.FlushAsync();
         }
     }
 }
