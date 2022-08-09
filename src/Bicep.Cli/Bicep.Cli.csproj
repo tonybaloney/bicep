@@ -4,8 +4,10 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>bicep</AssemblyName>
     <StartupObject>Bicep.Cli.Program</StartupObject>
-    <!-- .net 5 by default does not package up the native dependencies -->
+    <!-- .net by default does not package up the native dependencies -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- enable custom targets to generate a NOTICE file and embed it as a resource -->
+    <EnableCliToolNoticeEmbedding>true</EnableCliToolNoticeEmbedding>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +32,10 @@
     <EmbeddedResource Update="CliResources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>CliResources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+
+    <EmbeddedResource Include="..\..\LICENSE">
+      <LogicalName>LICENSE</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

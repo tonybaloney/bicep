@@ -53,4 +53,6 @@
   <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForCSharpNugetPackages.targets" Condition="'$(EnableNuget)' == 'true'" />
 
   <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForCSharpProjects.targets" Condition="'$(EnableNoticeInPublishOutput)' == 'true'" />
+
+  <Import Project="$(MSBuildThisFileDirectory)\build\GenerateNoticeForCliTools.targets" Condition="'$(EnableCliToolNoticeEmbedding)' == 'true'" />
 </Project>

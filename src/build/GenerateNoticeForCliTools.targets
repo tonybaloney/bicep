@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <NoticeFilePath>$(IntermediateOutputPath)NOTICE.txt</NoticeFilePath>
+  </PropertyGroup>
+
+  <Target Name="GenerateNotice" Condition="'$(NOTICE_GENERATOR_PATH)' != ''" BeforeTargets="BeforeBuild" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
+    <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
+    
+    <Exec 
+      Command="$(NOTICE_GENERATOR_PATH) --asset-files $(ProjectAssetsFile) --output-file $(NoticeFilePath)"
+      WorkingDirectory="$(MSBuildProjectDirectory)" />
+  </Target>
+
+  <Target Name="EmbedGeneratedNotice" Condition="Exists('$(NoticeFilePath)')" AfterTargets="GenerateNotice">
+    <ItemGroup>
+      <EmbeddedResource Include="$(NoticeFilePath)">
+        <LogicalName>NOTICE</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+</Project>
