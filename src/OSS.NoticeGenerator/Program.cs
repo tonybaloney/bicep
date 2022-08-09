@@ -71,6 +71,7 @@ namespace OSS.NoticeGenerator
             var nugetDependencies = assetFiles
                 .Select(assetFilePath => DeserializeFile<ProjectAssetsFile>(assetFilePath))
                 .SelectMany(assetFile => assetFile.Libraries.Values)
+                .Where(library => string.Equals(library.Type, "package", StringComparison.OrdinalIgnoreCase))
                 .Select(library => library.Path)
                 .Distinct()
                 .ToImmutableArray();
