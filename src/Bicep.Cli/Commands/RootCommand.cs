@@ -29,6 +29,18 @@ namespace Bicep.Cli.Commands
                 return 0;
             }
 
+            if(args.PrintLicense)
+            {
+                PrintLicense();
+                return 0;
+            }
+
+            if(args.PrintThirdPartyNotices)
+            {
+                PrintThirdPartyNotices();
+                return 0;
+            }
+
             return 1;
         }
 
@@ -137,6 +149,16 @@ Usage:
 
             invocationContext.OutputWriter.Write(output);
             invocationContext.OutputWriter.Flush();
+        }
+
+        private void PrintLicense()
+        {
+
+        }
+
+        private void PrintThirdPartyNotices()
+        {
+
         }
 
         private static string GetVersionString()
