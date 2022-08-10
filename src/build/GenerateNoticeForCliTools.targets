@@ -1,9 +1,48 @@
 <Project>
   <PropertyGroup>
     <NoticeFilePath>$(IntermediateOutputPath)NOTICE.txt</NoticeFilePath>
+    <LicenseFilePath>$(MSBuildProjectDirectory)\..\..\LICENSE</LicenseFilePath>
+
+    <DeflatedNoticeFilePath>$(IntermediateOutputPath)NOTICE.txt.deflated</DeflatedNoticeFilePath>
+    <DeflatedLicenseFilePath>$(IntermediateOutputPath)LICENSE.deflated</DeflatedLicenseFilePath>    
   </PropertyGroup>
 
-  <Target Name="GenerateNotice" Condition="'$(NOTICE_GENERATOR_PATH)' != ''" BeforeTargets="BeforeBuild" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
+  <UsingTask TaskName="CompressFile" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourceFile ParameterType="System.String" Required="true" />
+      <TargetFile ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.IO.Compression" />
+      <Code Type="Fragment" Language="cs">
+        <![CDATA[
+          Directory.CreateDirectory(Path.GetDirectoryName(TargetFile));
+          using (var inputStream = File.OpenRead(SourceFile))
+          using (var outputStream = File.Create(TargetFile))
+          using (var compressionStream = new DeflateStream(outputStream, CompressionLevel.Optimal))
+          {
+              inputStream.CopyTo(compressionStream);
+          }
+        ]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="CompressLicenseFile" Inputs="$(LicenseFilePath)" Outputs="$(DeflatedLicenseFilePath)">
+    <CompressFile SourceFile="$(LicenseFilePath)" TargetFile="$(DeflatedLicenseFilePath)" />
+  </Target>
+
+  <Target Name="EmbedLicenseFile" AfterTargets="BeforeBuild" DependsOnTargets="CompressLicenseFile">
+    <ItemGroup>
+      <!-- include the license as an embedded resource -->
+      <EmbeddedResource Include="$(DeflatedLicenseFilePath)">
+        <LogicalName>LICENSE.deflated</LogicalName>
+      </EmbeddedResource>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="GenerateNotice" Condition="'$(NOTICE_GENERATOR_PATH)' != ''" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
     <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
     
     <Exec 
@@ -11,10 +50,15 @@
       WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
-  <Target Name="EmbedGeneratedNotice" Condition="Exists('$(NoticeFilePath)')" AfterTargets="GenerateNotice">
-    <ItemGroup>
-      <EmbeddedResource Include="$(NoticeFilePath)">
-        <LogicalName>NOTICE</LogicalName>
+  <Target Name="CompressNoticeFile" DependsOnTargets="GenerateNotice" Inputs="$(NoticeFilePath)" Outputs="$(DeflatedNoticeFilePath)">
+    <CompressFile SourceFile="$(NoticeFilePath)" TargetFile="$(DeflatedNoticeFilePath)" />
+  </Target>
+
+  <Target Name="EmbedNoticeFile" AfterTargets="BeforeBuild" DependsOnTargets="CompressNoticeFile">
+    <ItemGroup Condition="Exists('$(NoticeFilePath)')">
+      <!-- include the generated notice as an embedded resource -->
+      <EmbeddedResource Include="$(DeflatedNoticeFilePath)">
+        <LogicalName>NOTICE.deflated</LogicalName>
       </EmbeddedResource>
     </ItemGroup>
   </Target>

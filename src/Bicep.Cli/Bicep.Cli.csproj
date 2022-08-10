@@ -33,10 +33,6 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>CliResources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-
-    <EmbeddedResource Include="..\..\LICENSE">
-      <LogicalName>LICENSE</LogicalName>
-    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
