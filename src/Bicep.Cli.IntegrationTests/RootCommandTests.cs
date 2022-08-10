@@ -115,9 +115,15 @@ namespace Bicep.Cli.IntegrationTests
              */
             var (output, error, result) = await Bicep("--third-party-notices");
 
-            if(IsLocalBuild())
+            if (IsLocalBuild())
             {
-
+                using (new AssertionScope())
+                {
+                    result.Should().Be(1);
+                    output.Should().BeEmpty();
+                    error.Should().NotBeEmpty();
+                    error.Should().Contain("The resource stream 'NOTICE.deflated' is missing from this executable. Please use an official build of this executable to access the requested information.");
+                }
             }
             else
             {
@@ -138,7 +144,7 @@ namespace Bicep.Cli.IntegrationTests
                     // the notice file should be long
                     output.Length.Should().BeGreaterThan(100000);
                 }
-            }            
+            }
         }
 
         [TestMethod]
