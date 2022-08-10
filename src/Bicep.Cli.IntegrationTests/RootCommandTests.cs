@@ -6,6 +6,8 @@ using Bicep.Core.UnitTests.Assertions;
 using FluentAssertions;
 using FluentAssertions.Execution;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Bicep.Cli.IntegrationTests
@@ -76,6 +78,67 @@ namespace Bicep.Cli.IntegrationTests
                     "bicep",
                     "usage");
             }
+        }
+
+        [TestMethod]
+        public async Task BicepLicenseShouldPrintLicense()
+        {
+            var (output, error, result) = await Bicep("--license");
+
+            using (new AssertionScope())
+            {
+                result.Should().Be(0);
+                error.Should().BeEmpty();
+
+                output.Should().NotBeEmpty();
+                output.Should().ContainAll(
+                    "MIT License",
+                    "Copyright (c) Microsoft Corporation.",
+                    "Permission is hereby granted",
+                    "The above copyright notice",
+                    "THE SOFTWARE IS PROVIDED \"AS IS\"");
+            }
+        }
+
+        [TestMethod]
+        public async Task BicepThirdPartyNoticesShouldPrintNoticesOrFailInLocalBuilds()
+        {
+            static bool IsLocalBuild()
+            {
+                var noticeGeneratorPath = Environment.GetEnvironmentVariable("NOTICE_GENERATOR_PATH");
+                return noticeGeneratorPath is null || !File.Exists(noticeGeneratorPath);
+            }
+
+            /*
+             * The NOTICE file generation will not be done for local builds, 
+             * so this test needs to assert on different behaviors for different situations
+             */
+            var (output, error, result) = await Bicep("--third-party-notices");
+
+            if(IsLocalBuild())
+            {
+
+            }
+            else
+            {
+                using (new AssertionScope())
+                {
+                    result.Should().Be(0);
+                    error.Should().BeEmpty();
+
+                    output.Should().NotBeEmpty();
+                    output.Should().ContainAll(
+                        "MIT License",
+                        "Copyright (c) Microsoft Corporation.",
+                        "---------------------------------------------------------",
+                        "Copyright (c) .NET Foundation and Contributors",
+                        "THE SOFTWARE IS PROVIDED \"AS IS\"",
+                        "MIT");
+
+                    // the notice file should be long
+                    output.Length.Should().BeGreaterThan(100000);
+                }
+            }            
         }
 
         [TestMethod]
