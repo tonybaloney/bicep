@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 using Bicep.Cli.Arguments;
+using Bicep.Core.Exceptions;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -174,7 +175,7 @@ Usage:
         private static void WriteEmbeddedResource(TextWriter writer, string streamName)
         {
             using var stream = typeof(RootCommand).Assembly.GetManifestResourceStream(streamName)
-                ?? throw new InvalidOperationException($"The resource stream '{streamName}' is missing from this executable. Please use an official build of this executable to access the requested information.");
+                ?? throw new BicepException($"The resource stream '{streamName}' is missing from this executable. Please use an official build of this executable to access the requested information.");
 
             using var decompressor = new DeflateStream(stream, CompressionMode.Decompress);
 
