@@ -50,7 +50,7 @@
       WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
-  <Target Name="CompressNoticeFile" DependsOnTargets="GenerateNotice" Inputs="$(NoticeFilePath)" Outputs="$(DeflatedNoticeFilePath)">
+  <Target Name="CompressNoticeFile" Condition="'$(NOTICE_GENERATOR_PATH)' != ''" DependsOnTargets="GenerateNotice" Inputs="$(NoticeFilePath)" Outputs="$(DeflatedNoticeFilePath)">
     <CompressFile SourceFile="$(NoticeFilePath)" TargetFile="$(DeflatedNoticeFilePath)" />
   </Target>
 
