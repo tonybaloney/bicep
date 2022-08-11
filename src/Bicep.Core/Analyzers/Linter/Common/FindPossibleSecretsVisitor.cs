@@ -82,6 +82,7 @@ namespace Bicep.Core.Analyzers.Linter.Common
 
         public override void VisitInstanceFunctionCallSyntax(InstanceFunctionCallSyntax syntax)
         {
+            // asdfg extract
             if (syntax.Name.IdentifierName.StartsWithOrdinalInsensitively(LanguageConstants.ListFunctionPrefix))
             {
                 bool found = false;
