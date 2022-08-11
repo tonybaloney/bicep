@@ -166,6 +166,111 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
+            public void ReferenceFunction_NoArgs_Pass()
+            {
+                string bicep = @"
+                    output a object = reference()
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                        // Compiler error
+                        "[2] Expected 1 to 3 arguments, but got 0."
+                    });
+            }
+
+            [TestMethod]
+            public void ReferenceFunction_IgnoreApiVersionInFirstArg_Pass()
+            {
+                string bicep = @"
+                    output a object = reference('2417-12-01-preview')
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                    });
+            }
+
+            [TestMethod]
+            public void ReferenceFunction_InvalidApiVersion_Pass()
+            {
+                string bicep = @"
+                    output a object = reference('', '417-12-01-preview')
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                    });
+            }
+
+            [TestMethod]
+            public void ReferenceFunction_NotAStringLiteral_Pass()
+            {
+                string bicep = @"
+                    param apiversion string
+                    output a object = reference('', apiversion)
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                    });
+            }
+
+            [TestMethod]
+            public void ReferenceFunction_ApiVersionInParamDefault_Fail()
+            {
+                string bicep = @"
+                    param apiversion string = '2000-01-01'
+                    output a object = reference('', apiversion)
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                        "asdfg"
+                    });
+            }
+
+            [TestMethod]
+            public void ReferenceFunction_ApiVersionInVariable_Fail()
+            {
+                string bicep = @"
+                    var apiversion string = '2000-01-01'
+                    output a object = reference('', apiversion)
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                        "asdfg"
+                    });
+            }
+
+            [TestMethod]
+            public void ReferenceFunction_NoApiVersion_Pass()
+            {
+                string bicep = @"
+                    output a object = reference(resourceId('Fake.DBforMySQL/servers', 'test'), '')
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                    FakeResourceTypes.ResourceScopeTypes,
+                    "2422-07-04",
+                    new string[] {
+                    });
+            }
+
+            [TestMethod]
             public void ApiVersionInOutput_Fail()
             {
                 string bicep = @"
