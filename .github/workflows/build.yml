@@ -168,7 +168,7 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
 
-      - name: Build BicepInVisualStudio.sln
+      - name: Build Bicep.sln
         run: msbuild Bicep.sln -restore -t:rebuild -verbosity:diag -property:Configuration=Release
 
       - name: Build BicepInVisualStudio.sln
