@@ -3,8 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Bicep.Core.Analyzers.Linter.ApiVersions;
 using Bicep.Core.CodeAction;
 using Bicep.Core.Configuration;
@@ -13,49 +15,17 @@ using Bicep.Core.Parsing;
 using Bicep.Core.Resources;
 using Bicep.Core.Semantics;
 using Bicep.Core.Semantics.Metadata;
+using Bicep.Core.Semantics.Namespaces;
 using Bicep.Core.Syntax;
+using Bicep.Core.Syntax.Visitors;
 using Bicep.Core.TypeSystem;
+using Microsoft.WindowsAzure.ResourceStack.Common.Extensions;
 
 namespace Bicep.Core.Analyzers.Linter.Rules
 {
     public sealed class UseRecentApiVersionRule : LinterRuleBase
     {
         /* asdfg
-        <#
-.Synopsis
-    Ensures the apiVersions are recent (when used in reference functions).
-.Description
-    Ensures the apiVersions of any resources used within reference functions are recent and non-preview.
-#>
-param(
-    # The resource in the main template
-    [Parameter(Mandatory = $true, Position = 0)]
-    [string]
-    $TemplateText,
-
-    # The resource in the main template
-    [Parameter(Mandatory = $true, Position = 0)]
-    [PSObject]
-    $TemplateObject,
-
-    # All potential resources in Azure (from cache)
-    [Parameter(Mandatory = $true, Position = 2)]
-    [PSObject]
-    $AllAzureResources,
-
-    # Number of days that the apiVersion must be less than 
-    [Parameter(Mandatory = $false, Position = 3)]
-    [int32]
-    $NumberOfDays = 730,
-
-    # Test Run Date - date to use when doing comparisons, if not current date (used for unit testing against and old cache)
-    [Parameter(Mandatory = $false, Position = 3)]
-    [datetime]
-    $TestDate = [DateTime]::Now
-)
-
-$foundReferences = $TemplateText | 
-?<ARM_Template_Function> -FunctionName 'reference|list\w{0,}'
 
 foreach ($foundRef in $foundReferences) {
     
@@ -274,9 +244,69 @@ if (-not $potentialResourceType) { continue }
                         failure.AcceptableVersions);
                 }
             }
+
+            foreach (var failure in AnalyzeFunctionCalls(model))
+            {
+                yield return CreateFixableDiagnosticForSpan(
+                    failure.Span,
+                    failure.Fixes,
+                    failure.ResourceType,
+                    failure.Reason,
+                    failure.AcceptableVersions);
+            }
         }
 
-        public Failure? AnalyzeResource(SemanticModel model, ResourceDeclarationSyntax resourceDeclarationSyntax)
+        private IEnumerable<Failure> AnalyzeFunctionCalls(SemanticModel model)
+        {
+            var referenceAndListFunctionCalls = FindFunctionCallsByName(
+                model,
+                model.SourceFile.ProgramSyntax,
+                AzNamespaceType.BuiltInName,
+                "reference|(list.*)");
+            foreach (var functionCall in referenceAndListFunctionCalls)
+            {
+                if (AnalyzeFunctionCall(functionCall) is Failure failure)
+                {
+                    yield return failure;
+                }
+            }
+        }
+
+        private Failure? AnalyzeFunctionCall(FunctionCallSyntaxBase syntax)
+        {
+            if (TryGetApiVersionFromFunctionCall(syntax) is (StringSyntax, string) apiVersion)
+            {
+                return new Failure(apiVersion.syntax.Span, "asdfg", "asdfg", new ApiVersion[] { }, new CodeFix[] { }/*asdfg*/);
+            }
+
+            return null;
+        }
+
+        private (StringSyntax syntax, string literal)? TryGetApiVersionFromFunctionCall(FunctionCallSyntaxBase syntax)
+        {
+            var functionName = syntax.Name.IdentifierName;
+            if (functionName.EqualsOrdinally("reference"))
+            {
+                // apiVersion is in the optional 2nd argument
+                if (syntax.Arguments.Length >= 2)
+                {
+                    if (syntax.Arguments[1].Expression is StringSyntax stringSyntax &&
+                        stringSyntax.TryGetLiteralValue() is string apiVersion)
+                    {
+                        return (stringSyntax, apiVersion);
+                    }
+                }
+            }
+            else
+            {
+                //asdfg
+                Debug.Assert(functionName.StartsWithOrdinally(LanguageConstants.ListFunctionPrefix), $"Unexpected function name {functionName}");
+            }
+
+            return null;
+        }
+
+        private Failure? AnalyzeResource(SemanticModel model, ResourceDeclarationSyntax resourceDeclarationSyntax)
         {
             if (model.GetSymbolInfo(resourceDeclarationSyntax) is not ResourceSymbol resourceSymbol)
             {
@@ -511,5 +541,35 @@ if (-not $potentialResourceType) { continue }
         {
             return DateTime.Compare(date, other) > 0;
         }
+
+        private static Regex IsRegexRegex = new("[.$^([\\]]", RegexOptions.Compiled);
+
+        private static IEnumerable<FunctionCallSyntaxBase> FindFunctionCallsByName(SemanticModel model, SyntaxBase root, string @namespace, string functionNameRegex)
+        {
+            //asdfg extract
+            bool isFunctionNameARegex = IsRegexRegex.IsMatch(functionNameRegex);
+            Regex? regex = isFunctionNameARegex ? new Regex(functionNameRegex) : null;
+
+            return SyntaxAggregator.Aggregate(
+                source: root,
+                seed: new List<FunctionCallSyntaxBase>(),
+                function: (accumulated, syntax) =>
+                {
+                    if (syntax is FunctionCallSyntaxBase
+                        && SemanticModelHelper.TryGetFunctionInNamespace(model, @namespace, syntax) is FunctionCallSyntaxBase functionCallSyntax)
+                    {
+                        string functionName = functionCallSyntax.Name.IdentifierName;
+                        if (regex is not null && regex.IsMatch(functionName)
+                            || functionName.EqualsOrdinally(functionNameRegex))
+                        {
+                            accumulated.Add(functionCallSyntax);
+                        }
+                    }
+
+                    return accumulated;
+                },
+                resultSelector: accumulated => accumulated);
+        }
     }
 }
+
