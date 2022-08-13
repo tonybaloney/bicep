@@ -3,7 +3,7 @@
 using Bicep.Core.Diagnostics;
 using Bicep.Core.Extensions;
 using Bicep.Core.Navigation;
-using Bicep.Core.Parsing;
+using Bicep.Core.Resources;
 using Bicep.Core.Semantics;
 using Bicep.Core.Syntax;
 using Bicep.Core.Text;
@@ -25,8 +25,11 @@ namespace Bicep.Core.TypeSystem
 
         private class TypeValidatorConfig
         {
-            public TypeValidatorConfig(bool skipTypeErrors, bool skipConstantCheck, bool disallowAny, SyntaxBase? originSyntax, TypeMismatchDiagnosticWriter? onTypeMismatch, bool isResourceDeclaration)
+            public IBinder Binder {get; }
+
+            public TypeValidatorConfig(IBinder binder, bool skipTypeErrors, bool skipConstantCheck, bool disallowAny, SyntaxBase? originSyntax, TypeMismatchDiagnosticWriter? onTypeMismatch, bool isResourceDeclaration)
             {
+                this.Binder = binder;
                 this.SkipTypeErrors = skipTypeErrors;
                 this.SkipConstantCheck = skipConstantCheck;
                 this.DisallowAny = disallowAny;
@@ -182,6 +185,7 @@ namespace Bicep.Core.TypeSystem
         public static TypeSymbol NarrowTypeAndCollectDiagnostics(ITypeManager typeManager, IBinder binder, IDiagnosticWriter diagnosticWriter, SyntaxBase expression, TypeSymbol targetType, bool isResourceDeclaration = false)
         {
             var config = new TypeValidatorConfig(
+                binder: binder,
                 skipTypeErrors: false,
                 skipConstantCheck: false,
                 disallowAny: false,
@@ -350,6 +354,7 @@ namespace Bicep.Core.TypeSystem
             foreach (var arrayItemSyntax in expression.Items)
             {
                 var newConfig = new TypeValidatorConfig(
+                    binder: config.Binder,
                     skipConstantCheck: config.SkipConstantCheck,
                     skipTypeErrors: true,
                     disallowAny: config.DisallowAny,
@@ -388,6 +393,7 @@ namespace Bicep.Core.TypeSystem
         private TypeSymbol NarrowVariableAccessType(TypeValidatorConfig config, VariableAccessSyntax variableAccess, TypeSymbol targetType)
         {
             var newConfig = new TypeValidatorConfig(
+                binder: config.Binder,
                 skipConstantCheck: config.SkipConstantCheck,
                 skipTypeErrors: config.SkipTypeErrors,
                 disallowAny: config.DisallowAny,
@@ -499,6 +505,20 @@ namespace Bicep.Core.TypeSystem
             }
         }
 
+        private static Uri GetTypeInaccuracyUrl(TypeValidatorConfig config, bool showTypeInaccuracy, SyntaxBase positionable)
+        {
+            if (showTypeInaccuracy &&
+                config.Binder.GetAllAncestors<ResourceDeclarationSyntax>(config.OriginSyntax ?? positionable).LastOrDefault() is {} resourceSyntax &&
+                config.Binder.GetSymbolInfo(resourceSyntax) is ResourceSymbol resourceSymbol &&
+                ResourceTypeReference.TryParse(resourceSyntax.TypeString?.TryGetLiteralValue() ?? "") is {} typeReference)
+            {
+                var bicepRepro = $"```bicep\n{resourceSyntax.ToTextPreserveFormatting()}\n```";
+                return new Uri($"https://github.com/Azure/bicep-types-az/issues/new?labels=inaccuracy&template=types_inaccuracy.yml&title=%5B{typeReference.FormatName()}%5D%3A+%3Cdescription%3E&resourceType={typeReference.FormatType()}&apiVersion={typeReference.ApiVersion}&repro={Uri.EscapeDataString(bicepRepro)}");
+            }
+
+            return new Uri("https://github.com/Azure/bicep-types-az/issues/new?labels=inaccuracy&template=types_inaccuracy.yml");
+        }
+
         private TypeSymbol NarrowObjectType(TypeValidatorConfig config, ObjectSyntax expression, ObjectType targetType)
         {
             static (TypeSymbol type, bool typeWasPreserved) AddImplicitNull(TypeSymbol propertyType, TypePropertyFlags propertyFlags)
@@ -540,9 +560,10 @@ namespace Bicep.Core.TypeSystem
                 var missingRequiredPropertiesNames = missingRequiredProperties.Select(p => p.Name).OrderBy(p => p).ToList();
                 var showTypeInaccuracy = config.IsResourceDeclaration && missingRequiredProperties.Any(p => !p.Flags.HasFlag(TypePropertyFlags.SystemProperty));
 
+                var url = GetTypeInaccuracyUrl(config, showTypeInaccuracy, positionable);
                 diagnosticWriter.Write(
                     config.OriginSyntax ?? positionable,
-                    x => x.MissingRequiredProperties(shouldWarn, TryGetSourceDeclaration(config), expression, missingRequiredPropertiesNames, blockName, showTypeInaccuracy));
+                    x => x.MissingRequiredProperties(shouldWarn, TryGetSourceDeclaration(config), expression, missingRequiredPropertiesNames, blockName, url));
             }
 
             var narrowedProperties = new List<TypeProperty>();
@@ -587,6 +608,7 @@ namespace Bicep.Core.TypeSystem
                     }
 
                     var newConfig = new TypeValidatorConfig(
+                        binder: config.Binder,
                         skipConstantCheck: skipConstantCheckForProperty,
                         skipTypeErrors: true,
                         disallowAny: declaredProperty.Flags.HasFlag(TypePropertyFlags.DisallowAny),
@@ -669,6 +691,7 @@ namespace Bicep.Core.TypeSystem
                     }
 
                     var newConfig = new TypeValidatorConfig(
+                        binder: config.Binder,
                         skipConstantCheck: skipConstantCheckForProperty,
                         skipTypeErrors: true,
                         disallowAny: targetType.AdditionalPropertiesFlags.HasFlag(TypePropertyFlags.DisallowAny),
@@ -689,7 +712,7 @@ namespace Bicep.Core.TypeSystem
             return new ObjectType(targetType.Name, targetType.ValidationFlags, narrowedProperties, targetType.AdditionalPropertiesType, targetType.AdditionalPropertiesFlags, targetType.MethodResolver.CopyToObject);
         }
 
-        private (IPositionable positionable, string blockName) GetMissingPropertyContext(SyntaxBase expression)
+        private (SyntaxBase positionable, string blockName) GetMissingPropertyContext(SyntaxBase expression)
         {
             var parent = binder.GetParent(expression);
 

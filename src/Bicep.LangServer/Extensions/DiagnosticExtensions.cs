@@ -20,7 +20,7 @@ namespace Bicep.LanguageServer.Extensions
             return new OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic()
             {
                 Severity = ToDiagnosticSeverity(diagnostic.Level),
-                Code = descCode ?? diagnostic.Code,
+                Code = diagnostic.Code,
                 Message = diagnostic.Message,
                 Source = diagnostic.Source,
                 Range = diagnostic.ToRange(lineStarts),
