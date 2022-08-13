@@ -1,21 +1,23 @@
 <Project>
   <PropertyGroup>
     <NoticeFilePath>$(IntermediateOutputPath)NOTICE.txt</NoticeFilePath>
+    <GenerateNoticeBeforeTargets>GenerateNuspec</GenerateNoticeBeforeTargets>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(NOTICE_GENERATOR_PATH)' != ''">
+  <Target Name="PrepareForNoticeGeneration" BeforeTargets="GenerateNotice">
+    <ItemGroup>
+      <NoticeGeneratorAssetFile Include="$(ProjectAssetsFile)" />
+    </ItemGroup>
+    <PropertyGroup>
+      <NoticeGeneratorOutputPath>$(NoticeFilePath)</NoticeGeneratorOutputPath>
+    </PropertyGroup>
+  </Target>
+
+  <ItemGroup>
     <!-- 
       Ensure the notice file is included in the package at the root.
       This must be outside the generate notice target because the target can be skipped if notice file is up to date
     -->
     <Content Include="$(NoticeFilePath)" PackagePath="" />
   </ItemGroup>
-
-  <Target Name="GenerateNotice" Condition="'$(NOTICE_GENERATOR_PATH)' != ''" BeforeTargets="GenerateNuspec" Inputs="$(ProjectAssetsFile)" Outputs="$(NoticeFilePath)">
-    <Error Condition="!Exists('$(NOTICE_GENERATOR_PATH)')" Text="Could not find the notice generator tool at '$(NOTICE_GENERATOR_PATH)'." />
-    
-    <Exec 
-      Command="$(NOTICE_GENERATOR_PATH) --asset-files $(ProjectAssetsFile) --output-file $(NoticeFilePath)"
-      WorkingDirectory="$(MSBuildProjectDirectory)" />
-  </Target>
 </Project>
