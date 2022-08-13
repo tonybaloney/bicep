@@ -7,7 +7,8 @@
     <!-- .net by default does not package up the native dependencies -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- enable custom targets to generate a NOTICE file and embed it as a resource -->
-    <EnableCliToolNoticeEmbedding>true</EnableCliToolNoticeEmbedding>
+    <AddNoticeAsEmbeddedResource>true</AddNoticeAsEmbeddedResource>
+    <AddLicenseAsEmbeddedResource>true</AddLicenseAsEmbeddedResource>
   </PropertyGroup>
 
   <ItemGroup>
