@@ -1,0 +1,37 @@
+<Playlist Version="2.0">
+  <Rule Name="Includes" Match="Any">
+    <Rule Match="All">
+      <Property Name="Solution" />
+      <Rule Match="Any">
+        <Rule Match="All">
+          <Property Name="Project" Value="Bicep.Core.UnitTests" />
+          <Rule Match="Any">
+            <Rule Match="All">
+              <Property Name="Namespace" Value="Bicep.Core.UnitTests.Diagnostics.LinterRuleTests" />
+              <Rule Match="Any">
+                <Rule Match="All">
+                  <Property Name="Class" Value="UseRecentApiVersionRuleTests*" />
+                </Rule>
+                <Rule Match="All">
+                  <Property Name="Class" Value="UseRecentApiVersionRuleTests+GetAcceptableApiVersionsTests" />
+                </Rule>
+                <Rule Match="All">
+                  <Property Name="Class" Value="UseRecentApiVersionRuleTests+CompilationTests" />
+                </Rule>
+                <Rule Match="All">
+                  <Property Name="Class" Value="UseRecentApiVersionRuleTests+AnalyzeApiVersionTests" />
+                </Rule>
+                <Rule Match="All">
+                  <Property Name="Class" Value="UseRecentApiVersionRuleTests+InReferenceFunctions" />
+                </Rule>
+                <Rule Match="All">
+                  <Property Name="Class" Value="UseRecentApiVersionRuleTests+GetAcceptableApiVersionsInvariantsTests" />
+                </Rule>
+              </Rule>
+            </Rule>
+          </Rule>
+        </Rule>
+      </Rule>
+    </Rule>
+  </Rule>
+</Playlist>

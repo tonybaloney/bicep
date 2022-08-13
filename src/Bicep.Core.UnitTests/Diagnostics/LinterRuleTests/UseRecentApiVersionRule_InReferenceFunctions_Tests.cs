@@ -1,8 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using Bicep.Core.Analyzers.Linter;
+using Bicep.Core.Analyzers.Linter.Rules;
+using Bicep.Core.Navigation;
 using Bicep.Core.TypeSystem;
+using Bicep.Core.UnitTests.Assertions;
+using Bicep.Core.UnitTests.Utils;
+using FluentAssertions;
+using FluentAssertions.Execution;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Linq;
 
 #pragma warning disable CA1825 // Avoid zero-length array allocations
 
@@ -13,6 +21,51 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
         [TestClass]
         public class InReferenceFunctions
         {
+            record ExpectedFunctionInfo(string FunctionCall, string? ResourceType, string? ApiVerion);
+
+            [DataRow(
+                @"
+                    var lbPublicIPName = 'lbPublicIPName'
+                    output o string = reference(resourceId('Microsoft.Network/publicIPAddresses', lbPublicIPName),'2020-08-01').dnsSettings.fqdn
+                ",
+                "reference(resourceId('Microsoft.Network/publicIPAddresses', lbPublicIPName), '2020-08-01')",
+                "Microsoft.Network/publicIPAddresses",
+                "2020-08-01"
+            )]
+            [DataTestMethod]
+            public void GetFunctionCallInfo(string bicep, string expectedFunctionCall, string? expectedResourceType, string? expectedApiVerion)
+            {
+                ExpectedFunctionInfo typedExpected = new(expectedFunctionCall, expectedResourceType, expectedApiVerion);
+
+                var result = CompilationHelper.Compile(bicep);
+                using (new AssertionScope().WithFullSource(result.BicepFile))
+                {
+                    result.Should().NotHaveDiagnosticsWithCodes(new[] { LinterAnalyzer.LinterRuleInternalError }, "There should never be linter LinterRuleInternalError errors");
+
+                    //asdfg
+                    //IDiagnostic[] diagnosticsMatchingCode = result.Diagnostics
+                    //    .Where(d => d.Code == UseRecentApiVersionRule.Code || IsCompilerDiagnostic(d))
+                    //    .ToArray();
+                    //DiagnosticAssertions.DoWithDiagnosticAnnotations(
+                    //    result.Compilation.SourceFileGrouping.EntryPoint,
+                    //    result.Diagnostics,
+                    //    diagnostics =>
+                    //    {
+                    //        diagnostics.
+                    //    });
+
+
+                    var actual = UseRecentApiVersionRule.GetFunctionCallInfo(result.Compilation.GetEntrypointSemanticModel());
+                    actual.Should().HaveCount(1, "Expecting a single function call per test");
+                    var typedActual = new ExpectedFunctionInfo(
+                            actual.First().FunctionCallSyntax.ToText(),
+                            actual.First().ResourceType?.asString,
+                            actual.First().ApiVersion?.asString);
+
+                    typedActual.Should().BeEquivalentTo(typedExpected);
+                }
+            }
+
             [TestMethod]
             // https://raw.githubusercontent.com/Azure/arm-ttk/master/unit-tests/apiVersions-Should-Be-Recent-In-Reference-Functions/Pass/ApiInPolicyRuleTemplate.json
             public void ArmTtk_ApiInPolicyRuleTemplate_Pass()
@@ -151,7 +204,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
 
             [TestMethod]
             // https://github.com/Azure/arm-ttk/blob/master/unit-tests/apiVersions-Should-Be-Recent-In-Reference-Functions/Pass/NoApiVersion.json
-            public void ArmTtk_NoApiVersion_Pass()
+            public void ArmTtk_NoApiVersion_Ignored()
             {
                 string bicep = @"
                 output a object = reference(resourceId('Fake.DBforMySQL/servers', 'test'))
@@ -166,7 +219,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void ReferenceFunction_NoArgs_Pass()
+            public void ReferenceFunction_NoArgs_Ignored()
             {
                 string bicep = @"
                     output a object = reference()
@@ -182,7 +235,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void ReferenceFunction_IgnoreApiVersionInFirstArg_Pass()
+            public void ReferenceFunction_IgnoreApiVersionInFirstArg_Ignored()
             {
                 string bicep = @"
                     output a object = reference('2417-12-01-preview')
@@ -196,10 +249,10 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void ReferenceFunction_InvalidApiVersion_Pass()
+            public void ReferenceFunction_InvalidApiVersion_Ignored()
             {
                 string bicep = @"
-                    output a object = reference('', '417-12-01-preview')
+                    output a object = reference('Fake.DBforMySQL/servers', '417-12-01-preview')
                 ";
                 CompileAndTestWithFakeDateAndTypes(bicep,
                     ResourceScope.ResourceGroup,
@@ -209,12 +262,13 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     });
             }
 
+            //asdfg?
             [TestMethod]
-            public void ReferenceFunction_NotAStringLiteral_Pass()
+            public void ReferenceFunction_ApiVersionNotAStringLiteral_Ignored()
             {
                 string bicep = @"
                     param apiversion string
-                    output a object = reference('', apiversion)
+                    output a object = reference('Fake.DBforMySQL/servers', apiversion)
                 ";
                 CompileAndTestWithFakeDateAndTypes(bicep,
                     ResourceScope.ResourceGroup,
@@ -224,24 +278,25 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
                     });
             }
 
-            [TestMethod]
-            public void ReferenceFunction_ApiVersionInParamDefault_Fail()
-            {
-                string bicep = @"
-                    param apiversion string = '2000-01-01'
-                    output a object = reference('', apiversion)
-                ";
-                CompileAndTestWithFakeDateAndTypes(bicep,
-                    ResourceScope.ResourceGroup,
-                    FakeResourceTypes.ResourceScopeTypes,
-                    "2422-07-04",
-                    new string[] {
-                        "asdfg"
-                    });
-            }
+            //asdfg
+            //[TestMethod]
+            //public void ReferenceFunction_ApiVersionInParamDefault_RuleApplies()
+            //{
+            //    string bicep = @"
+            //        param apiversion string = '2000-01-01'
+            //        output a object = reference('', apiversion)
+            //    ";
+            //    CompileAndTestWithFakeDateAndTypes(bicep,
+            //        ResourceScope.ResourceGroup,
+            //        FakeResourceTypes.ResourceScopeTypes,
+            //        "2422-07-04",
+            //        new string[] {
+            //            "asdfg"
+            //        });
+            //}
 
             [TestMethod]
-            public void ReferenceFunction_ApiVersionInVariable_Fail()
+            public void ReferenceFunction_ApiVersionInVariable_RuleApplies()
             {
                 string bicep = @"
                     var apiversion string = '2000-01-01'
@@ -271,7 +326,7 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             }
 
             [TestMethod]
-            public void ApiVersionInOutput_Fail()
+            public void ApiVersionInOutput_RuleApplies()
             {
                 string bicep = @"
                     output a object = reference(resourceId('Fake.DBforMySQL/servers', 'test'), '2417-12-01-preview')
@@ -494,6 +549,43 @@ namespace Bicep.Core.UnitTests.Diagnostics.LinterRuleTests
             //            "asdfg",
             //        });
             //}
+
+            //asdfg???
+            //[TestMethod]
+            //public void Reference_StringLiteral()
+            //{
+            //    string bicep = @"
+            //        output o1 string = reference('Fake.Resources/deployments/SettingUpVirtualNetwork', '2015-01-01').outputs.dbSubnetRef.value
+            //    ";
+            //    CompileAndTestWithFakeDateAndTypes(bicep,
+            //        ResourceScope.ResourceGroup,
+            //        FakeResourceTypes.ResourceScopeTypes,
+            //        "2422-07-04",
+            //        new string[] {
+            //            "asdfg",
+            //        });
+            //}
+
+            [TestMethod]
+            public void ReferenceFunction_ResourceIdLiteral_ApiVersionLiteral()
+            {
+                string bicep = @"
+                    var lbPublicIPName = 'lbPublicIPName'
+                    output o string = reference(resourceId('Microsoft.Network/publicIPAddresses', lbPublicIPName),'2020-08-01').dnsSettings.fqdn
+                ";
+                CompileAndTestWithFakeDateAndTypes(bicep,
+                    ResourceScope.ResourceGroup,
+                FakeResourceTypes.ResourceScopeTypes,
+                "2422-07-04",
+                    new string[] {
+                        // TTK result:
+                        //[-] apiVersions Should Be Recent In Reference Functions(57 ms)
+                        //    Api versions must be the latest or under 2 years old(730 days) - API version used by:
+                        //        reference(resourceId('Microsoft.Network/publicIPAddresses', variables('lbPublicIPName')), '2020-08-01')
+                        //    is 742 days old Line: 499, Column: 18
+                        "asdfg",
+                    });
+            }
         }
     }
 

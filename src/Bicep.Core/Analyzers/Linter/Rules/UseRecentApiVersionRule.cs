@@ -27,33 +27,51 @@ namespace Bicep.Core.Analyzers.Linter.Rules
     {
         /* asdfg
 
+
 foreach ($foundRef in $foundReferences) {
-    
+
+// "[reference(resourceId('Microsoft.Network/publicIPAddresses',variables('lbPublicIPName')),'2020-08-01').dnsSettings.fqdn]"
+        
     $hasApiVersion = $foundRef.Value | ?<ARM_API_Version> -Extract # Find the api version
     if (-not $hasApiVersion) { continue } # if we don't have one, continue.
-    $apiVersion = $hasApiVersion.0 
+    $apiVersion = $hasApiVersion.0
+
+// e.g. 2020-08-01
+
     $hasResourceId = $foundRef.Value | ?<ARM_Template_Function> -FunctionName resourceId
+// e.g. resourceId('Microsoft.Network/publicIPAddresses',variables('lbPublicIPName'))
+
     $hasVariable = $foundRef.value | ?<ARM_Variable> | Select-Object -First 1
+// e.g. lbPublicIPName
+
     $potentialResourceType = ''
 
     if ($hasResourceId) {       
         $parameterSegments = @($hasResourceId.Groups["Parameters"].value -split '[(),]' -ne '' -replace "^\s{0,}'" -replace "'\s{0,}$")
+
+e.g.
+Microsoft.Network/publicIPAddresses
+variables
+lbPublicIPName
+
         $potentialResourceType = ''
         $resourceTypeStarted = $false
         $potentialResourceType = @(foreach ($seg in $parameterSegments) {
-                if ($seg -like '<dot>/*') {
+                if ($seg -like '<asterisk>/*') {
                     $seg
     }
 }) -join '/'
+e.g. Microsoft.Network/publicIPAddresses
     }
-    elseif($hasVariable) {
-        $foundResource = Find - JsonContent - Key name - Value "*$($hasVariable.Value)*" - InputObject $TemplateObject - Like |
-        Where - Object JSONPath - Like * Resources * |
-        Select - Object - First 1
+    elseif ($hasVariable) {
+        //asdfg
+        $foundResource = Find-JsonContent -Key name -Value "*$($hasVariable.Value)*" -InputObject $TemplateObject -Like |
+        Where-Object JSONPath -Like *Resources* | 
+        Select-Object -First 1
 
-        $typeList = @(@($foundResource) + @($foundResource.ParentObject) | Where - Object Type | Select - Object - ExpandProperty Type)
+        $typeList = @(@($foundResource) + @($foundResource.ParentObject) | Where-Object Type | Select-Object -ExpandProperty Type)
         [Array]::Reverse($typeList)
-        $potentialResourceType = $typeList - join '/'
+        $potentialResourceType = $typeList -join '/'
     }
 
 if (-not $potentialResourceType) { continue }
@@ -61,24 +79,28 @@ if (-not $potentialResourceType) { continue }
     $apiDate = [DateTime]::new($hasApiVersion.Year, $hasApiVersion.Month, $hasApiVersion.Day) # now coerce the apiVersion into a DateTime
 
     $validApiVersions = @($AllAzureResources.$potentialResourceType | # and see if there's an apiVersion.
-        Select - Object - ExpandProperty apiVersions |
-        Sort - Object - Descending)
+        Select-Object -ExpandProperty apiVersions |
+        Sort-Object -Descending)
 
-    if (-not $validApiVersions) { 
-        $potentialResourceTypes = @($potentialResourceType - split '/')
-        for ($i = ($potentialResourceTypes.Count - 1) ; $i - ge 1; $i--) {
-            $potentialType = $potentialResourceTypes[0..$i] - join '/'
+    if (-not $validApiVersions) {
+        //asdfg
+        $potentialResourceTypes = @($potentialResourceType -split '/')
+e.g.
+Microsoft.Network
+publicIPAddresses
+        for ($i = ($potentialResourceTypes.Count - 1); $i -ge 1; $i--) {
+            $potentialType = $potentialResourceTypes[0..$i] -join '/'
             if ($AllAzureResources.$potentialType) {
                 $validApiVersions = @($AllAzureResources.$potentialType | # and see if there's an apiVersion.
-                    Select - Object - ExpandProperty apiVersions |
-                    Sort - Object - Descending)            
+                    Select-Object -ExpandProperty apiVersions |
+                    Sort-Object -Descending)            
                 break
             }
-    }
-    if (-not $validApiVersions) {
-        continue
         }
-}
+        if (-not $validApiVersions) { 
+            continue
+        }
+    }
 
     # Create a string of recent or allowed apiVersions for display in the error message
     $recentApiVersions = ""
@@ -183,6 +205,10 @@ if (-not $potentialResourceType) { continue }
         // give errors for these because Bicep always provides a warning about types not being available)
         private bool warnNotFound = false;
 
+        private static readonly Regex resourceTypeRegex = new(
+            "^ [a-z]+\\.[a-z]+ (\\/ [a-z]+)+ $",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.IgnorePatternWhitespace);
+
         public record Failure(
             TextSpan Span,
             string ResourceType,
@@ -190,6 +216,12 @@ if (-not $potentialResourceType) { continue }
             ApiVersion[] AcceptableVersions,
             CodeFix[] Fixes
         );
+
+        public record FunctionCallInfo(
+            FunctionCallSyntaxBase FunctionCallSyntax,
+            string FunctionName,
+            (StringSyntax syntax, string asString)? ResourceType,
+            (StringSyntax syntax, ApiVersion apiVersion, string asString)? ApiVersion);
 
         public UseRecentApiVersionRule() : base(
             code: Code,
@@ -245,65 +277,117 @@ if (-not $potentialResourceType) { continue }
                 }
             }
 
-            foreach (var failure in AnalyzeFunctionCalls(model))
-            {
-                yield return CreateFixableDiagnosticForSpan(
-                    failure.Span,
-                    failure.Fixes,
-                    failure.ResourceType,
-                    failure.Reason,
-                    failure.AcceptableVersions);
-            }
+            //foreach (var failure in AnalyzeFunctionCalls(model))
+            //{
+            //    yield return CreateFixableDiagnosticForSpan(
+            //        failure.Span,
+            //        failure.Fixes,
+            //        failure.ResourceType,
+            //        failure.Reason,
+            //        failure.AcceptableVersions);
+            //}
         }
 
-        private IEnumerable<Failure> AnalyzeFunctionCalls(SemanticModel model)
+        public static IEnumerable<FunctionCallInfo> GetFunctionCallInfo(SemanticModel model)
         {
             var referenceAndListFunctionCalls = FindFunctionCallsByName(
                 model,
                 model.SourceFile.ProgramSyntax,
                 AzNamespaceType.BuiltInName,
                 "reference|(list.*)");
-            foreach (var functionCall in referenceAndListFunctionCalls)
-            {
-                if (AnalyzeFunctionCall(functionCall) is Failure failure)
-                {
-                    yield return failure;
-                }
-            }
+            return referenceAndListFunctionCalls.Select(fc => GetInfoFromFunctionCall(fc));
+
+            //asdfg
+            //foreach (var functionCall in referenceAndListFunctionCalls)
+            //{
+            //    if (AnalyzeFunctionCall(model, functionCall) is Failure failure)
+            //    {
+            //        yield return failure;
+            //    }
+            //}
         }
 
-        private Failure? AnalyzeFunctionCall(FunctionCallSyntaxBase syntax)
-        {
-            if (TryGetApiVersionFromFunctionCall(syntax) is (StringSyntax, string) apiVersion)
-            {
-                return new Failure(apiVersion.syntax.Span, "asdfg", "asdfg", new ApiVersion[] { }, new CodeFix[] { }/*asdfg*/);
-            }
+        //asdfg
+        //private Failure? AnalyzeFunctionCall(SemanticModel model, FunctionCallSyntaxBase syntax)
+        //{
+        //    if (TryGetApiVersionFromFunctionCall(syntax) is FunctionCallResourceApiVersion resourceApiVersion)
+        //    {
+        //        var replacementSpan = GetReplacementSpan(resourceApiVersion.ApiVersionSyntax, resourceApiVersion.ApiVersionString);
+        //        if (replacementSpan is not null)
+        //        {
+        //            var failure = AnalyzeApiVersion(
+        //                model.Compilation.ApiVersionProvider,
+        //                replacementSpan, model.TargetScope,
+        //                resourceApiVersion.ResourceTypeString,
+        //                resourceApiVersion.ApiVersion);
+        //            if (failure is not null)
+        //            {
+        //                return failure;
+        //            }
+        //        }
+        //    }
 
-            return null;
-        }
+        //    return null;
+        //}
 
-        private (StringSyntax syntax, string literal)? TryGetApiVersionFromFunctionCall(FunctionCallSyntaxBase syntax)
+        private static FunctionCallInfo GetInfoFromFunctionCall(FunctionCallSyntaxBase functionCallSyntax)
         {
-            var functionName = syntax.Name.IdentifierName;
+            var functionName = functionCallSyntax.Name.IdentifierName;
+
+            (StringSyntax syntax, ApiVersion apiVersion, string asString)? apiVersionInfo = null;
+            (StringSyntax syntax, string asString)? resourceTypeInfo = null;
+
             if (functionName.EqualsOrdinally("reference"))
-            {
-                // apiVersion is in the optional 2nd argument
-                if (syntax.Arguments.Length >= 2)
+            { //asdfg test with bad resource type and api version
+                //// resource type in first argument
+                //if (functionCallSyntax.Arguments.Length >= 1
+                //    && functionCallSyntax.Arguments[0].Expression is StringSyntax resourceTypeSyntax //asdfg what if resource type is in a variable or param?
+                //         && resourceTypeSyntax.TryGetLiteralValue() is string resourceTypeString)
+                //{
+                //    if (resourceTypeRegex.IsMatch(resourceTypeString))
+                //    {
+                //        resourceTypeInfo = (resourceTypeSyntax, resourceTypeString);
+                //    }
+                //}
+
+                // If the first argument is a resourceId call (asdfg or other resourceId type)
+                if (functionCallSyntax.Arguments.Length >= 1
+                    && functionCallSyntax.Arguments[0].Expression is FunctionCallSyntaxBase resourceIdCall
+                    && resourceIdCall.Name.IdentifierName.EqualsOrdinally("resourceId"))
                 {
-                    if (syntax.Arguments[1].Expression is StringSyntax stringSyntax &&
-                        stringSyntax.TryGetLiteralValue() is string apiVersion)
+                    // Pick out resource type from first argument
+                    if (resourceIdCall.Arguments.Length >= 1
+                        && resourceIdCall.Arguments[0].Expression is StringSyntax resourceTypeSyntax //asdfg what if resource type is in a variable or param?
+                             && resourceTypeSyntax.TryGetLiteralValue() is string resourceTypeString)
                     {
-                        return (stringSyntax, apiVersion);
+                        if (resourceTypeRegex.IsMatch(resourceTypeString))
+                        {
+                            resourceTypeInfo = (resourceTypeSyntax, resourceTypeString);
+                        }
                     }
                 }
+
+                // apiVersion is in the optional 2nd argument
+                if (functionCallSyntax.Arguments.Length >= 2)
+                {
+                    var apiVersionExpression = functionCallSyntax.Arguments[1].Expression;
+
+                    if (apiVersionExpression is StringSyntax apiVersionSyntax //asdfg what if api version is in a variable or param?
+                        && apiVersionSyntax.TryGetLiteralValue() is string apiVersionString
+                        && ApiVersion.TryParse(apiVersionString) is ApiVersion apiVersion)
+                    {
+                        apiVersionInfo = (apiVersionSyntax, apiVersion, apiVersionString);
+                    }
+                }
+
+                return new FunctionCallInfo(functionCallSyntax, functionName, resourceTypeInfo, apiVersionInfo);
             }
             else
             {
                 //asdfg
                 Debug.Assert(functionName.StartsWithOrdinally(LanguageConstants.ListFunctionPrefix), $"Unexpected function name {functionName}");
+                return new FunctionCallInfo(functionCallSyntax, functionName, null, null);
             }
-
-            return null;
         }
 
         private Failure? AnalyzeResource(SemanticModel model, ResourceDeclarationSyntax resourceDeclarationSyntax)
@@ -465,11 +549,20 @@ if (-not $potentialResourceType) { continue }
         // Find the portion of the resource.type@api-version string that corresponds to the api version
         private static TextSpan? GetReplacementSpan(ResourceSymbol resourceSymbol, string apiVersion)
         {
-            if (resourceSymbol.DeclaringResource.TypeString is StringSyntax typeString &&
-                typeString.StringTokens.First() is Token token)
+            if (resourceSymbol.DeclaringResource.TypeString is StringSyntax typeString)
+            {
+                return GetReplacementSpan(typeString, apiVersion);
+            }
+
+            return null;
+        }
+
+        private static TextSpan? GetReplacementSpan(StringSyntax apiVersionSyntax, string apiVersion/*asdfg do better*/)
+        {
+            if (apiVersionSyntax.StringTokens.First() is Token token)
             {
                 int replacementSpanStart = token.Span.Position + token.Text.IndexOf(apiVersion);
-
+                Debug.Assert(replacementSpanStart >= 0, "Couldn't find API version in string syntax");
                 return new TextSpan(replacementSpanStart, apiVersion.Length);
             }
 
@@ -542,7 +635,7 @@ if (-not $potentialResourceType) { continue }
             return DateTime.Compare(date, other) > 0;
         }
 
-        private static Regex IsRegexRegex = new("[.$^([\\]]", RegexOptions.Compiled);
+        private static readonly Regex IsRegexRegex = new("[.$^([\\]]", RegexOptions.Compiled);
 
         private static IEnumerable<FunctionCallSyntaxBase> FindFunctionCallsByName(SemanticModel model, SyntaxBase root, string @namespace, string functionNameRegex)
         {
